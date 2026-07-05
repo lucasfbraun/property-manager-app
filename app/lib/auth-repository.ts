@@ -39,19 +39,26 @@ export async function ensureAuthTables(d1: D1Binding = getD1()) {
   ]);
 }
 
-/** Adds `column` to `table` if it does not already exist (idempotent). */
+/**
+ * Adds `column` to `table` if it does not already exist. Tries the ALTER
+ * directly and swallows the "duplicate column" error instead of relying on
+ * PRAGMA table_info, since PRAGMA support can vary across D1 versions.
+ */
 export async function ensureColumn(
   d1: D1Binding,
   table: string,
   column: string,
   definition: string,
 ) {
-  const info = await d1
-    .prepare(`PRAGMA table_info(${table})`)
-    .all<{ name: string }>();
-  const exists = info.results.some((row: { name: string }) => row.name === column);
-  if (!exists) {
+  try {
     await d1.prepare(`ALTER TABLE ${table} ADD COLUMN ${definition}`).run();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/duplicate column name/i.test(message)) {
+      throw new Error(
+        `Falha ao adicionar coluna ${column} em ${table}: ${message}`,
+      );
+    }
   }
 }
 

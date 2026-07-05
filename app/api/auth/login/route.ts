@@ -8,7 +8,16 @@ import { ensureRentalDatabase } from "../../../lib/rental-repository";
 export async function POST(request: Request) {
   try {
     await ensureRentalDatabase();
+  } catch (error) {
+    return Response.json(
+      {
+        error: `Falha ao preparar o banco de dados: ${getErrorMessage(error)}`,
+      },
+      { status: 500 },
+    );
+  }
 
+  try {
     const payload = (await request.json()) as Record<string, unknown>;
     const email = String(payload.email ?? "").trim().toLowerCase();
     const password = String(payload.password ?? "");
