@@ -1,4 +1,4 @@
-import { getD1, type D1Binding } from "../../db";
+import { getD1, getR2, type D1Binding } from "../../db";
 import { ensureColumn } from "./auth-repository";
 import { formatCurrency, formatDate, type SignatureStatus } from "./rentals";
 
@@ -104,7 +104,8 @@ export async function ensureContractDocumentTables(d1: D1Binding = getD1()) {
     "signature_status",
     "signature_status text DEFAULT 'not_generated'",
   );
-  await ensureColumn(d1, "contracts", "signed_document", "signed_document text");
+  // Signed PDFs are stored in R2; this column only holds the R2 object key.
+  await ensureColumn(d1, "contracts", "signed_document_key", "signed_document_key text");
   await ensureColumn(d1, "contracts", "signed_file_name", "signed_file_name text");
   await ensureColumn(d1, "contracts", "signed_uploaded_at", "signed_uploaded_at text");
   await ensureColumn(d1, "contracts", "reviewed_at", "reviewed_at text");
@@ -262,7 +263,7 @@ export async function generateContractDocument(input: {
   await d1
     .prepare(
       `UPDATE contracts SET template_id = ?, contract_text = ?, signature_status = 'awaiting_signature',
-        signed_document = NULL, signed_file_name = NULL, signed_uploaded_at = NULL,
+        signed_document_key = NULL, signed_file_name = NULL, signed_uploaded_at = NULL,
         reviewed_at = NULL, review_note = NULL
        WHERE id = ?`,
     )
@@ -270,7 +271,12 @@ export async function generateContractDocument(input: {
     .run();
 }
 
-const MAX_SIGNED_FILE_BYTES = 3 * 1024 * 1024;
+/**
+ * Signed PDFs are stored in R2 (binding SIGNED_CONTRACTS), so the size limit
+ * here only guards against abuse/oversized uploads, not a storage-engine
+ * limit like D1's ~2MB per value.
+ */
+const MAX_SIGNED_FILE_BYTES = 15 * 1024 * 1024;
 
 export async function uploadSignedContract(input: {
   contractId: string;
@@ -306,18 +312,38 @@ export async function uploadSignedContract(input: {
   const approxBytes = Math.ceil((input.fileBase64.length * 3) / 4);
   if (approxBytes > MAX_SIGNED_FILE_BYTES) {
     throw new Error(
-      `Arquivo muito grande (limite de ${(MAX_SIGNED_FILE_BYTES / (1024 * 1024)).toFixed(1)}MB). Envie um PDF mais leve.`,
+      `Arquivo muito grande (limite de ${(MAX_SIGNED_FILE_BYTES / (1024 * 1024)).toFixed(0)}MB). Envie um PDF mais leve.`,
     );
   }
 
+  const previousKeyRow = await d1
+    .prepare("SELECT signed_document_key FROM contracts WHERE id = ?")
+    .bind(input.contractId)
+    .first<{ signed_document_key: string | null }>();
+
+  const objectKey = `contracts/${input.contractId}/${Date.now()}-${sanitizeFileName(input.fileName)}`;
+  const bytes = base64ToBytes(input.fileBase64);
+
+  await getR2().put(objectKey, bytes, {
+    httpMetadata: { contentType: "application/pdf" },
+  });
+
   await d1
     .prepare(
-      `UPDATE contracts SET signed_document = ?, signed_file_name = ?, signed_uploaded_at = ?,
+      `UPDATE contracts SET signed_document_key = ?, signed_file_name = ?, signed_uploaded_at = ?,
         signature_status = 'in_review', reviewed_at = NULL, review_note = NULL
        WHERE id = ?`,
     )
-    .bind(input.fileBase64, input.fileName, new Date().toISOString(), input.contractId)
+    .bind(objectKey, input.fileName, new Date().toISOString(), input.contractId)
     .run();
+
+  if (previousKeyRow?.signed_document_key) {
+    try {
+      await getR2().delete(previousKeyRow.signed_document_key);
+    } catch (error) {
+      console.error("[contract-documents] falha ao remover objeto R2 antigo:", error);
+    }
+  }
 
   return {
     tenantName: row.tenant_name,
@@ -376,18 +402,25 @@ export async function getSignedDocumentBlob(
   const d1 = getD1();
   const row = await d1
     .prepare(
-      "SELECT signed_document, signed_file_name, tenant_id FROM contracts WHERE id = ?",
+      "SELECT signed_document_key, signed_file_name FROM contracts WHERE id = ?",
     )
     .bind(contractId)
-    .first<{ signed_document: string | null; signed_file_name: string | null; tenant_id: string }>();
+    .first<{ signed_document_key: string | null; signed_file_name: string | null }>();
 
-  if (!row?.signed_document) {
+  if (!row?.signed_document_key) {
     return null;
   }
 
+  const object = await getR2().get(row.signed_document_key);
+  if (!object) {
+    return null;
+  }
+
+  const arrayBuffer = await object.arrayBuffer();
+
   return {
     fileName: row.signed_file_name ?? "contrato-assinado.pdf",
-    dataBase64: row.signed_document,
+    dataBase64: bytesToBase64(new Uint8Array(arrayBuffer)),
   };
 }
 
@@ -428,13 +461,21 @@ export async function listPendingApprovalContracts(): Promise<
       signed_uploaded_at: string | null;
     }>();
 
-  return rows.results.map((row: { id: string; tenant_name: string; property_name: string; signed_file_name: string | null; signed_uploaded_at: string | null }) => ({
-    id: row.id,
-    tenantName: row.tenant_name,
-    propertyName: row.property_name,
-    signedFileName: row.signed_file_name,
-    signedUploadedAt: row.signed_uploaded_at,
-  }));
+  return rows.results.map(
+    (row: {
+      id: string;
+      tenant_name: string;
+      property_name: string;
+      signed_file_name: string | null;
+      signed_uploaded_at: string | null;
+    }) => ({
+      id: row.id,
+      tenantName: row.tenant_name,
+      propertyName: row.property_name,
+      signedFileName: row.signed_file_name,
+      signedUploadedAt: row.signed_uploaded_at,
+    }),
+  );
 }
 
 export async function listAdminEmails(): Promise<string[]> {
@@ -457,4 +498,26 @@ function mapTemplate(row: ContractTemplateRow): ContractTemplate {
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function sanitizeFileName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9.\-_]/g, "_").slice(-120);
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }

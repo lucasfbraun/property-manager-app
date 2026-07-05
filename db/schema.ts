@@ -92,7 +92,7 @@ export const contracts = sqliteTable("contracts", {
   })
     .notNull()
     .default("not_generated"),
-  signedDocument: text("signed_document"),
+  signedDocumentKey: text("signed_document_key"),
   signedFileName: text("signed_file_name"),
   signedUploadedAt: text("signed_uploaded_at"),
   reviewedAt: text("reviewed_at"),

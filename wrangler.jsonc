@@ -15,6 +15,12 @@
       "database_id": "eae4e82d-e0e0-483e-8247-e5c471c8d0aa"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "SIGNED_CONTRACTS",
+      "bucket_name": "property-manager-signed-contracts"
+    }
+  ],
   "observability": {
     "enabled": true
   }

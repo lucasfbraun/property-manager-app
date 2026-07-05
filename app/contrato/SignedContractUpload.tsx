@@ -3,7 +3,7 @@
 import { useState, type ChangeEvent } from "react";
 import type { SignatureStatus } from "../lib/rentals";
 
-const MAX_FILE_BYTES = 3 * 1024 * 1024;
+const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
 export function SignedContractUpload({
   contractId,

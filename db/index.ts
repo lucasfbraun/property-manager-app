@@ -17,3 +17,15 @@ export function getD1() {
 export function getDb() {
   return drizzle(getD1(), { schema });
 }
+
+export type R2Binding = NonNullable<typeof env.SIGNED_CONTRACTS>;
+
+export function getR2() {
+  if (!env.SIGNED_CONTRACTS) {
+    throw new Error(
+      "Cloudflare R2 binding `SIGNED_CONTRACTS` is unavailable. Declare it under `r2_buckets` in wrangler.jsonc (binding \"SIGNED_CONTRACTS\") with a real bucket_name, and create the bucket in the Cloudflare dashboard before uploading signed contracts."
+    );
+  }
+
+  return env.SIGNED_CONTRACTS;
+}
