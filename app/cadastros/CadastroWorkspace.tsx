@@ -102,6 +102,35 @@ export function CadastroWorkspace({
     }
   }
 
+  async function generateCharge(contractId: string) {
+    setIsSaving(true);
+    try {
+      const response = await fetch("/api/charges/generate", {
+        body: JSON.stringify({ contractId }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        created?: boolean;
+        reference?: string;
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(result.error ?? "Falha ao gerar cobranca.");
+      }
+      setMessage(
+        result.created
+          ? `Cobranca de ${result.reference} gerada.`
+          : `Cobranca de ${result.reference} ja existia.`,
+      );
+      await refreshData();
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function addTenant(formData: FormData) {
     const name = String(formData.get("name") ?? "").trim();
     const document = String(formData.get("document") ?? "").trim();
@@ -597,6 +626,14 @@ export function CadastroWorkspace({
                       </td>
                       <td className="px-3 py-3 text-right">
                         <div className="flex justify-end gap-2">
+                          <button
+                            className="rounded-md border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-500/10"
+                            disabled={isSaving}
+                            onClick={() => generateCharge(contract.id)}
+                            type="button"
+                          >
+                            Gerar cobranca
+                          </button>
                           <button
                             className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
                             disabled={isSaving}

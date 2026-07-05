@@ -1,6 +1,7 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
+import { runMonthlyChargeSweep } from "../app/lib/charge-scheduler";
 
 interface Env {
   ASSETS: Fetcher;
@@ -17,6 +18,13 @@ interface Env {
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
   passThroughOnException(): void;
+}
+
+/** Minimal shape of Cloudflare's scheduled (Cron Trigger) controller. */
+interface ScheduledController {
+  scheduledTime: number;
+  cron: string;
+  noRetry(): void;
 }
 
 // Image security config. SVG sources with .svg extension auto-skip the
@@ -41,6 +49,23 @@ const worker = {
     }
 
     return handler.fetch(request, env, ctx);
+  },
+
+  /**
+   * Daily Cron Trigger (see wrangler.jsonc `triggers.crons`): generates the
+   * current billing cycle's charge for every active/expiring contract once
+   * it's within the lead window before the due date.
+   */
+  async scheduled(_controller: ScheduledController, _env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(
+      runMonthlyChargeSweep()
+        .then((result) => {
+          console.log(`[cron] cobrancas geradas: ${result.created}, ja existentes: ${result.skipped}`);
+        })
+        .catch((error) => {
+          console.error("[cron] falha ao gerar cobrancas mensais:", error);
+        }),
+    );
   },
 };
 

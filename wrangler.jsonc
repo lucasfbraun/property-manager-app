@@ -21,6 +21,9 @@
       "bucket_name": "property-manager-signed-contracts"
     }
   ],
+  "triggers": {
+    "crons": ["0 12 * * *"]
+  },
   "observability": {
     "enabled": true
   }
