@@ -43,6 +43,8 @@ type ReceiverRow = {
   document: string;
   email: string;
   mercado_pago_account: string | null;
+  mp_access_token: string | null;
+  mp_connected_at: string | null;
 };
 
 type ContractRow = {
@@ -74,6 +76,9 @@ type ChargeRow = {
   due_date: string;
   original_amount: number;
   status: "open" | "overdue" | "paid" | "cancelled";
+  pix_qr_code: string | null;
+  pix_qr_code_base64: string | null;
+  pix_expires_at: string | null;
 };
 
 let initialized = false;
@@ -454,6 +459,17 @@ export async function ensureRentalDatabase(d1: D1Binding = getD1()) {
   // the column has to be backfilled instead of relying on CREATE TABLE.
   await ensureColumn(d1, "receivers", "user_id", "user_id text REFERENCES users(id)");
 
+  // Mercado Pago OAuth (per-receiver connected account) and Pix fields,
+  // backfilled the same additive way as the auth/contract columns above.
+  await ensureColumn(d1, "receivers", "mp_user_id", "mp_user_id text");
+  await ensureColumn(d1, "receivers", "mp_access_token", "mp_access_token text");
+  await ensureColumn(d1, "receivers", "mp_refresh_token", "mp_refresh_token text");
+  await ensureColumn(d1, "receivers", "mp_token_expires_at", "mp_token_expires_at text");
+  await ensureColumn(d1, "receivers", "mp_connected_at", "mp_connected_at text");
+  await ensureColumn(d1, "charges", "pix_qr_code", "pix_qr_code text");
+  await ensureColumn(d1, "charges", "pix_qr_code_base64", "pix_qr_code_base64 text");
+  await ensureColumn(d1, "charges", "pix_expires_at", "pix_expires_at text");
+
   await ensureContractDocumentTables(d1);
 
   await seedIfEmpty(d1);
@@ -731,6 +747,8 @@ function mapReceiver(row: ReceiverRow): Receiver {
     email: row.email,
     id: row.id,
     mpAccount: row.mercado_pago_account ?? "Conta Mercado Pago pendente",
+    mpConnected: Boolean(row.mp_access_token),
+    mpConnectedAt: row.mp_connected_at,
     name: row.name,
   };
 }
@@ -770,6 +788,9 @@ function mapCharge(row: ChargeRow): Charge {
     contractId: row.contract_id,
     dueDate: row.due_date,
     id: row.id,
+    pixExpiresAt: row.pix_expires_at,
+    pixQrCode: row.pix_qr_code,
+    pixQrCodeBase64: row.pix_qr_code_base64,
     reference: row.reference,
     status:
       row.status === "paid"

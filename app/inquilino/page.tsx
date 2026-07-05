@@ -9,6 +9,7 @@ import { getRentalData } from "../lib/rental-repository";
 import { requireUser } from "../lib/session";
 import { LogoutButton } from "../components/LogoutButton";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { PixButton } from "./PixButton";
 
 export const dynamic = "force-dynamic";
 
@@ -134,10 +135,11 @@ export default async function TenantPortal() {
                     </div>
 
                     <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                      <PaymentOption
-                        label="Pix"
-                        note="Gerar copia e cola"
-                        state="Disponivel no MVP"
+                      <PixButton
+                        chargeId={charge.id}
+                        initialExpiresAt={charge.pixExpiresAt}
+                        initialQrCode={charge.pixQrCode}
+                        initialQrCodeBase64={charge.pixQrCodeBase64}
                       />
                       <PaymentOption
                         label="Cartao"

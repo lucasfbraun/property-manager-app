@@ -7,9 +7,14 @@ import { CadastroWorkspace } from "./CadastroWorkspace";
 
 export const dynamic = "force-dynamic";
 
-export default async function CadastrosPage() {
+export default async function CadastrosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mpConnected?: string; mpError?: string }>;
+}) {
   await requireUser(["admin"]);
   const data = await getRentalData();
+  const { mpConnected, mpError } = await searchParams;
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] px-4 py-5 text-[#0F172A] dark:bg-transparent dark:text-slate-100 sm:px-6 lg:px-8">
@@ -33,6 +38,17 @@ export default async function CadastrosPage() {
             <LogoutButton />
           </div>
         </header>
+
+        {mpConnected ? (
+          <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+            Conta do Mercado Pago conectada com sucesso.
+          </div>
+        ) : null}
+        {mpError ? (
+          <div className="mb-5 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+            Falha ao conectar o Mercado Pago: {mpError}
+          </div>
+        ) : null}
 
         <CadastroWorkspace
           initialContracts={data.contracts}

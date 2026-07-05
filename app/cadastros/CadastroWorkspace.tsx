@@ -517,6 +517,27 @@ export function CadastroWorkspace({
               />
             </EditForm>
           )}
+          renderExtra={(receiver) => (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-3 dark:border-white/10">
+              <span
+                className={
+                  receiver.mpConnected
+                    ? "text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                    : "text-xs font-semibold text-amber-600 dark:text-amber-400"
+                }
+              >
+                {receiver.mpConnected
+                  ? "Mercado Pago conectado"
+                  : "Mercado Pago nao conectado"}
+              </span>
+              <a
+                className="btn-secondary"
+                href={`/api/mercadopago/connect?receiverId=${receiver.id}`}
+              >
+                {receiver.mpConnected ? "Reconectar" : "Conectar Mercado Pago"}
+              </a>
+            </div>
+          )}
           renderSubtitle={(receiver) => `${receiver.email} - ${receiver.mpAccount}`}
           renderTitle={(receiver) => receiver.name}
           title="Recebedores"
@@ -682,6 +703,7 @@ function ManagementPanel<T extends { id: string }>({
   onDelete,
   onEdit,
   renderEditForm,
+  renderExtra,
   renderSubtitle,
   renderTitle,
   title,
@@ -693,6 +715,7 @@ function ManagementPanel<T extends { id: string }>({
   onDelete: (item: T) => void;
   onEdit: (item: T) => void;
   renderEditForm: (item: T) => React.ReactNode;
+  renderExtra?: (item: T) => React.ReactNode;
   renderSubtitle: (item: T) => string;
   renderTitle: (item: T) => string;
   title: string;
@@ -739,6 +762,7 @@ function ManagementPanel<T extends { id: string }>({
                   </div>
                 </div>
               )}
+              {editingId !== item.id && renderExtra ? renderExtra(item) : null}
             </div>
           ))
         ) : (

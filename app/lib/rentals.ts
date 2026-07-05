@@ -39,6 +39,8 @@ export type Receiver = {
   document: string;
   email: string;
   mpAccount: string;
+  mpConnected: boolean;
+  mpConnectedAt: string | null;
 };
 
 export type Tenant = {
@@ -89,6 +91,9 @@ export type Charge = {
   status: ChargeStatus;
   paidAt?: string;
   paymentMethod?: PaymentMethod;
+  pixQrCode: string | null;
+  pixQrCodeBase64: string | null;
+  pixExpiresAt: string | null;
 };
 
 export type PaymentProjection = Charge & {
@@ -111,6 +116,8 @@ export const receivers: Receiver[] = [
     document: "000.000.000-00",
     email: "lucas@example.com",
     mpAccount: "Mercado Pago Lucas",
+    mpConnected: false,
+    mpConnectedAt: null,
   },
   {
     id: "rec-guilherme",
@@ -118,6 +125,8 @@ export const receivers: Receiver[] = [
     document: "111.111.111-11",
     email: "guilherme@example.com",
     mpAccount: "Mercado Pago Guilherme",
+    mpConnected: false,
+    mpConnectedAt: null,
   },
 ];
 
@@ -248,6 +257,9 @@ export const charges: Charge[] = [
     status: "Paga",
     paidAt: "2026-06-05",
     paymentMethod: "Pix",
+    pixQrCode: null,
+    pixQrCodeBase64: null,
+    pixExpiresAt: null,
   },
   {
     id: "chg-2026-06-1002",
@@ -256,6 +268,9 @@ export const charges: Charge[] = [
     dueDate: "2026-06-10",
     amount: 2450,
     status: "Vencida",
+    pixQrCode: null,
+    pixQrCodeBase64: null,
+    pixExpiresAt: null,
   },
   {
     id: "chg-2026-07-1003",
@@ -264,6 +279,9 @@ export const charges: Charge[] = [
     dueDate: "2026-07-05",
     amount: 3200,
     status: "Aberta",
+    pixQrCode: null,
+    pixQrCodeBase64: null,
+    pixExpiresAt: null,
   },
 ];
 

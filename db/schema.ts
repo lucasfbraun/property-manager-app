@@ -26,6 +26,11 @@ export const receivers = sqliteTable("receivers", {
   email: text("email").notNull(),
   mercadoPagoAccount: text("mercado_pago_account"),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
+  mpUserId: text("mp_user_id"),
+  mpAccessToken: text("mp_access_token"),
+  mpRefreshToken: text("mp_refresh_token"),
+  mpTokenExpiresAt: text("mp_token_expires_at"),
+  mpConnectedAt: text("mp_connected_at"),
 });
 
 export const tenants = sqliteTable("tenants", {
@@ -115,6 +120,9 @@ export const charges = sqliteTable("charges", {
   }).notNull(),
   mercadoPagoPaymentId: text("mercado_pago_payment_id"),
   paymentUrl: text("payment_url"),
+  pixQrCode: text("pix_qr_code"),
+  pixQrCodeBase64: text("pix_qr_code_base64"),
+  pixExpiresAt: text("pix_expires_at"),
 });
 
 export const payments = sqliteTable("payments", {
