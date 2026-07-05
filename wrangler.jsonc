@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "property-manager-app",
+  "name": "property-manager",
   "main": "./worker/index.ts",
   "compatibility_date": "2026-07-05",
   "compatibility_flags": ["nodejs_compat"],
