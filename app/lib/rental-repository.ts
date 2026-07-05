@@ -5,6 +5,7 @@ import {
   ensureColumn,
   createUser,
 } from "./auth-repository";
+import { ensureContractDocumentTables } from "./contract-documents";
 import {
   charges,
   contracts,
@@ -15,6 +16,7 @@ import {
   type Contract,
   type Property,
   type Receiver,
+  type SignatureStatus,
   type Tenant,
 } from "./rentals";
 
@@ -56,6 +58,13 @@ type ContractRow = {
   monthly_interest_rate: number;
   grace_days: number;
   status: "draft" | "active" | "expiring" | "closed" | "cancelled";
+  template_id: string | null;
+  contract_text: string | null;
+  signature_status: SignatureStatus | null;
+  signed_file_name: string | null;
+  signed_uploaded_at: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
 };
 
 type ChargeRow = {
@@ -77,6 +86,11 @@ export type RentalData = {
   charges: Charge[];
 };
 
+const CONTRACT_COLUMNS = `id, property_id, tenant_id, receiver_id, monthly_rent, due_day,
+  starts_at, ends_at, fine_rate, monthly_interest_rate, grace_days, status,
+  template_id, contract_text, signature_status, signed_file_name, signed_uploaded_at,
+  reviewed_at, review_note`;
+
 export async function getRentalData(): Promise<RentalData> {
   const d1 = getD1();
   await ensureRentalDatabase(d1);
@@ -86,7 +100,9 @@ export async function getRentalData(): Promise<RentalData> {
       d1.prepare("SELECT * FROM tenants ORDER BY name").all<TenantRow>(),
       d1.prepare("SELECT * FROM properties ORDER BY name").all<PropertyRow>(),
       d1.prepare("SELECT * FROM receivers ORDER BY name").all<ReceiverRow>(),
-      d1.prepare("SELECT * FROM contracts ORDER BY starts_at DESC").all<ContractRow>(),
+      d1
+        .prepare(`SELECT ${CONTRACT_COLUMNS} FROM contracts ORDER BY starts_at DESC`)
+        .all<ContractRow>(),
       d1.prepare("SELECT * FROM charges ORDER BY due_date DESC").all<ChargeRow>(),
     ]);
 
@@ -438,6 +454,8 @@ export async function ensureRentalDatabase(d1: D1Binding = getD1()) {
   // the column has to be backfilled instead of relying on CREATE TABLE.
   await ensureColumn(d1, "receivers", "user_id", "user_id text REFERENCES users(id)");
 
+  await ensureContractDocumentTables(d1);
+
   await seedIfEmpty(d1);
   await seedAuthUsers(d1);
   initialized = true;
@@ -719,6 +737,7 @@ function mapReceiver(row: ReceiverRow): Receiver {
 
 function mapContract(row: ContractRow): Contract {
   return {
+    contractText: row.contract_text,
     dueDay: row.due_day,
     endsAt: row.ends_at,
     fineRate: row.fine_rate,
@@ -728,6 +747,11 @@ function mapContract(row: ContractRow): Contract {
     monthlyRent: row.monthly_rent,
     propertyId: row.property_id,
     receiverId: row.receiver_id,
+    reviewNote: row.review_note,
+    reviewedAt: row.reviewed_at,
+    signatureStatus: row.signature_status ?? "not_generated",
+    signedFileName: row.signed_file_name,
+    signedUploadedAt: row.signed_uploaded_at,
     startsAt: row.starts_at,
     status:
       row.status === "expiring"
@@ -735,6 +759,7 @@ function mapContract(row: ContractRow): Contract {
         : row.status === "closed"
           ? "Encerrado"
           : "Ativo",
+    templateId: row.template_id,
     tenantId: row.tenant_id,
   };
 }

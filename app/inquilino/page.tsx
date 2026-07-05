@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { formatCurrency, formatDate, getTenantPortalData } from "../lib/rentals";
+import {
+  formatCurrency,
+  formatDate,
+  getTenantPortalData,
+  signatureStatusLabel,
+} from "../lib/rentals";
 import { getRentalData } from "../lib/rental-repository";
 import { requireUser } from "../lib/session";
 import { LogoutButton } from "../components/LogoutButton";
@@ -11,6 +16,14 @@ const statusTone = {
   Aberta: "bg-[#DBEAFE] text-[#2563EB] ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/30",
   Vencida: "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30",
   Paga: "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30",
+};
+
+const signatureTone: Record<string, string> = {
+  not_generated: "bg-slate-100 text-slate-600 ring-slate-200 dark:bg-white/5 dark:text-slate-400 dark:ring-white/10",
+  awaiting_signature: "bg-[#DBEAFE] text-[#1D4ED8] ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/30",
+  in_review: "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30",
+  approved: "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30",
+  rejected: "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30",
 };
 
 export default async function TenantPortal() {
@@ -193,7 +206,14 @@ export default async function TenantPortal() {
           <aside className="space-y-5">
             {currentContract ? (
               <section className="surface-card p-4">
-                <h2 className="text-lg font-semibold">Contrato atual</h2>
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-lg font-semibold">Contrato atual</h2>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${signatureTone[currentContract.signatureStatus]}`}
+                  >
+                    {signatureStatusLabel(currentContract.signatureStatus)}
+                  </span>
+                </div>
                 <dl className="mt-4 space-y-3 text-sm">
                   <Info label="Imovel" value={currentContract.property.name} />
                   <Info
@@ -214,6 +234,18 @@ export default async function TenantPortal() {
                   />
                   <Info label="Vencimento" value={`Dia ${currentContract.dueDay}`} />
                 </dl>
+                {currentContract.signatureStatus !== "not_generated" ? (
+                  <Link
+                    className="btn-primary mt-4 inline-flex"
+                    href={`/contrato?contractId=${currentContract.id}`}
+                  >
+                    Ver contrato e assinatura
+                  </Link>
+                ) : (
+                  <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
+                    O administrador ainda nao gerou o documento deste contrato.
+                  </p>
+                )}
               </section>
             ) : (
               <section className="surface-card p-4 text-sm text-slate-600 dark:text-slate-400">

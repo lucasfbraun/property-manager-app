@@ -50,6 +50,14 @@ export const properties = sqliteTable("properties", {
   }).notNull(),
 });
 
+export const contractTemplates = sqliteTable("contract_templates", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  content: text("content").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 export const contracts = sqliteTable("contracts", {
   id: text("id").primaryKey(),
   propertyId: text("property_id")
@@ -71,6 +79,24 @@ export const contracts = sqliteTable("contracts", {
   status: text("status", {
     enum: ["draft", "active", "expiring", "closed", "cancelled"],
   }).notNull(),
+  templateId: text("template_id").references(() => contractTemplates.id),
+  contractText: text("contract_text"),
+  signatureStatus: text("signature_status", {
+    enum: [
+      "not_generated",
+      "awaiting_signature",
+      "in_review",
+      "approved",
+      "rejected",
+    ],
+  })
+    .notNull()
+    .default("not_generated"),
+  signedDocument: text("signed_document"),
+  signedFileName: text("signed_file_name"),
+  signedUploadedAt: text("signed_uploaded_at"),
+  reviewedAt: text("reviewed_at"),
+  reviewNote: text("review_note"),
 });
 
 export const charges = sqliteTable("charges", {

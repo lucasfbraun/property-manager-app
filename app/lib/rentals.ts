@@ -3,6 +3,36 @@ export type ContractStatus = "Ativo" | "Vence em breve" | "Encerrado";
 export type ChargeStatus = "Aberta" | "Vencida" | "Paga";
 export type PaymentMethod = "Pix" | "Cartao" | "Manual";
 
+/**
+ * Lifecycle of the contract document/signature flow:
+ * - not_generated: no template attached yet, nothing to sign.
+ * - awaiting_signature: text generated from a template, tenant can download
+ *   and needs to sign and upload it back.
+ * - in_review: tenant uploaded a signed copy, waiting for admin approval.
+ * - approved / rejected: admin decision. Rejected allows a new upload.
+ */
+export type SignatureStatus =
+  | "not_generated"
+  | "awaiting_signature"
+  | "in_review"
+  | "approved"
+  | "rejected";
+
+export function signatureStatusLabel(status: SignatureStatus): string {
+  switch (status) {
+    case "awaiting_signature":
+      return "Aguardando assinatura";
+    case "in_review":
+      return "Em analise";
+    case "approved":
+      return "Aprovado";
+    case "rejected":
+      return "Rejeitado";
+    default:
+      return "Nao gerado";
+  }
+}
+
 export type Receiver = {
   id: string;
   name: string;
@@ -41,6 +71,13 @@ export type Contract = {
   monthlyInterestRate: number;
   graceDays: number;
   status: ContractStatus;
+  templateId: string | null;
+  contractText: string | null;
+  signatureStatus: SignatureStatus;
+  signedFileName: string | null;
+  signedUploadedAt: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
 };
 
 export type Charge = {
@@ -149,6 +186,13 @@ export const contracts: Contract[] = [
     monthlyInterestRate: 0.01,
     graceDays: 0,
     status: "Ativo",
+    templateId: null,
+    contractText: null,
+    signatureStatus: "not_generated",
+    signedFileName: null,
+    signedUploadedAt: null,
+    reviewedAt: null,
+    reviewNote: null,
   },
   {
     id: "ctr-1002",
@@ -163,6 +207,13 @@ export const contracts: Contract[] = [
     monthlyInterestRate: 0.01,
     graceDays: 2,
     status: "Ativo",
+    templateId: null,
+    contractText: null,
+    signatureStatus: "not_generated",
+    signedFileName: null,
+    signedUploadedAt: null,
+    reviewedAt: null,
+    reviewNote: null,
   },
   {
     id: "ctr-1003",
@@ -177,6 +228,13 @@ export const contracts: Contract[] = [
     monthlyInterestRate: 0.01,
     graceDays: 0,
     status: "Vence em breve",
+    templateId: null,
+    contractText: null,
+    signatureStatus: "not_generated",
+    signedFileName: null,
+    signedUploadedAt: null,
+    reviewedAt: null,
+    reviewNote: null,
   },
 ];
 

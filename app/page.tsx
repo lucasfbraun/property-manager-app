@@ -44,6 +44,7 @@ export default async function Home() {
             <NavItem href="#contratos" label="Contratos" />
             <NavItem href="#inquilinos" label="Inquilinos" />
             <NavItem href="/cadastros" label="Cadastros" />
+            <NavItem href="/contratos" label="Contratos e assinaturas" />
             <NavItem href="/integracoes" label="Integracoes" />
             <NavItem href="/inquilino" label="Portal do inquilino" />
           </nav>
