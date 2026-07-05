@@ -9,6 +9,14 @@ export async function POST() {
     await deleteSession(token);
   }
 
+  store.set(SESSION_COOKIE_NAME, "", {
+    httpOnly: true,
+    maxAge: 0,
+    path: "/",
+    sameSite: "lax",
+    secure: true,
+  });
+
   const response = Response.json({ ok: true });
   response.headers.append("Set-Cookie", buildClearSessionCookie());
   return response;

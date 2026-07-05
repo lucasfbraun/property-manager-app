@@ -30,6 +30,17 @@ export default function LoginPage() {
         throw new Error(result.error ?? "Nao foi possivel entrar.");
       }
 
+      // Confirms the session cookie actually took effect before navigating,
+      // so a cookie/framework issue shows a clear message instead of just
+      // silently bouncing back to /login.
+      const check = await fetch("/api/auth/me", { cache: "no-store" });
+      const checkResult = (await check.json()) as { user?: unknown };
+      if (!checkResult.user) {
+        throw new Error(
+          "Login aceito pelo servidor, mas a sessao nao foi reconhecida logo em seguida (o cookie pode nao ter sido salvo pelo navegador). Tente novamente; se persistir, avise o suporte.",
+        );
+      }
+
       const destination =
         result.role === "tenant"
           ? "/inquilino"

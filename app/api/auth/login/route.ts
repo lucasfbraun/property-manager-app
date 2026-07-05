@@ -1,4 +1,10 @@
-import { verifyPassword, buildSessionCookie, SESSION_TTL_SECONDS } from "../../../lib/auth";
+import { cookies } from "next/headers";
+import {
+  verifyPassword,
+  buildSessionCookie,
+  SESSION_COOKIE_NAME,
+  SESSION_TTL_SECONDS,
+} from "../../../lib/auth";
 import {
   createSession,
   findUserByEmail,
@@ -32,6 +38,20 @@ export async function POST(request: Request) {
     }
 
     const token = await createSession(user.id, SESSION_TTL_SECONDS);
+
+    // Set the cookie two ways: via the official Next.js cookies() API (the
+    // path vinext is expected to support, since it implements next/headers)
+    // and by appending the raw Set-Cookie header on the response as a
+    // fallback, in case one of the two mechanisms isn't fully wired up.
+    const cookieStore = await cookies();
+    cookieStore.set(SESSION_COOKIE_NAME, token, {
+      httpOnly: true,
+      maxAge: SESSION_TTL_SECONDS,
+      path: "/",
+      sameSite: "lax",
+      secure: true,
+    });
+
     const response = Response.json({ role: user.role });
     response.headers.append(
       "Set-Cookie",
