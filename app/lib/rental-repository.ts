@@ -127,6 +127,44 @@ export async function createTenant(input: {
   return id;
 }
 
+export async function updateTenant(input: {
+  id: string;
+  name: string;
+  document: string;
+  email: string;
+  whatsapp: string;
+  status: "Ativo" | "Inadimplente" | "Inativo";
+  /** Optional: sets/resets the login password for the tenant portal. */
+  password?: string;
+}) {
+  const d1 = getD1();
+  await ensureRentalDatabase(d1);
+  const statusValue =
+    input.status === "Inadimplente"
+      ? "delinquent"
+      : input.status === "Inativo"
+        ? "inactive"
+        : "active";
+
+  await d1
+    .prepare(
+      "UPDATE tenants SET name = ?, document = ?, email = ?, whatsapp = ?, status = ? WHERE id = ?",
+    )
+    .bind(input.name, input.document, input.email, input.whatsapp, statusValue, input.id)
+    .run();
+
+  if (input.password) {
+    await setOrCreateLinkedUser(
+      "tenants",
+      input.id,
+      input.password,
+      input.name,
+      input.email,
+      "tenant",
+    );
+  }
+}
+
 export async function deleteTenant(id: string) {
   const d1 = getD1();
   await ensureRentalDatabase(d1);
@@ -210,6 +248,30 @@ export async function createProperty(input: {
   return id;
 }
 
+export async function updateProperty(input: {
+  id: string;
+  name: string;
+  address: string;
+  type: string;
+  status: "Alugado" | "Disponivel" | "Manutencao";
+}) {
+  const d1 = getD1();
+  await ensureRentalDatabase(d1);
+  const statusValue =
+    input.status === "Alugado"
+      ? "rented"
+      : input.status === "Manutencao"
+        ? "maintenance"
+        : "available";
+
+  await d1
+    .prepare(
+      "UPDATE properties SET name = ?, address = ?, type = ?, status = ? WHERE id = ?",
+    )
+    .bind(input.name, input.address, input.type, statusValue, input.id)
+    .run();
+}
+
 export async function createReceiver(input: {
   name: string;
   document: string;
@@ -236,6 +298,37 @@ export async function createReceiver(input: {
     .run();
 
   return id;
+}
+
+export async function updateReceiver(input: {
+  id: string;
+  name: string;
+  document: string;
+  email: string;
+  mpAccount: string;
+  /** Optional: sets/resets the login password for the receiver portal. */
+  password?: string;
+}) {
+  const d1 = getD1();
+  await ensureRentalDatabase(d1);
+
+  await d1
+    .prepare(
+      "UPDATE receivers SET name = ?, document = ?, email = ?, mercado_pago_account = ? WHERE id = ?",
+    )
+    .bind(input.name, input.document, input.email, input.mpAccount, input.id)
+    .run();
+
+  if (input.password) {
+    await setOrCreateLinkedUser(
+      "receivers",
+      input.id,
+      input.password,
+      input.name,
+      input.email,
+      "receiver",
+    );
+  }
 }
 
 export async function createContract(input: {
@@ -275,6 +368,45 @@ export async function createContract(input: {
     .run();
 
   return id;
+}
+
+export async function updateContract(input: {
+  id: string;
+  monthlyRent: number;
+  dueDay: number;
+  endsAt: string;
+  status: "Ativo" | "Vence em breve" | "Encerrado";
+  fineRate: number;
+  monthlyInterestRate: number;
+  graceDays: number;
+}) {
+  const d1 = getD1();
+  await ensureRentalDatabase(d1);
+  const statusValue =
+    input.status === "Vence em breve"
+      ? "expiring"
+      : input.status === "Encerrado"
+        ? "closed"
+        : "active";
+
+  await d1
+    .prepare(
+      `UPDATE contracts SET
+        monthly_rent = ?, due_day = ?, ends_at = ?, status = ?,
+        fine_rate = ?, monthly_interest_rate = ?, grace_days = ?
+      WHERE id = ?`,
+    )
+    .bind(
+      input.monthlyRent,
+      input.dueDay,
+      input.endsAt,
+      statusValue,
+      input.fineRate,
+      input.monthlyInterestRate,
+      input.graceDays,
+      input.id,
+    )
+    .run();
 }
 
 export async function ensureRentalDatabase(d1: D1Binding = getD1()) {
@@ -325,6 +457,42 @@ async function createLinkedUserIfRequested(
   const passwordHash = await hashPassword(password);
   await createUser({ email, id: userId, name, passwordHash, role });
   return userId;
+}
+
+/**
+ * Sets a new password for the user already linked to a tenant/receiver row,
+ * or creates and links a new user account if none exists yet.
+ */
+async function setOrCreateLinkedUser(
+  table: "tenants" | "receivers",
+  recordId: string,
+  password: string,
+  name: string,
+  email: string,
+  role: "tenant" | "receiver",
+) {
+  const d1 = getD1();
+  const row = await d1
+    .prepare(`SELECT user_id FROM ${table} WHERE id = ?`)
+    .bind(recordId)
+    .first<{ user_id: string | null }>();
+
+  const passwordHash = await hashPassword(password);
+
+  if (row?.user_id) {
+    await d1
+      .prepare("UPDATE users SET password_hash = ? WHERE id = ?")
+      .bind(passwordHash, row.user_id)
+      .run();
+    return;
+  }
+
+  const userId = createId("usr");
+  await createUser({ email, id: userId, name, passwordHash, role });
+  await d1
+    .prepare(`UPDATE ${table} SET user_id = ? WHERE id = ?`)
+    .bind(userId, recordId)
+    .run();
 }
 
 /**
