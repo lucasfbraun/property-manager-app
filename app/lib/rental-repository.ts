@@ -1,4 +1,10 @@
 import { getD1, type D1Binding } from "../../db";
+import { hashPassword } from "./auth";
+import {
+  ensureAuthTables,
+  ensureColumn,
+  createUser,
+} from "./auth-repository";
 import {
   charges,
   contracts,
@@ -98,16 +104,24 @@ export async function createTenant(input: {
   document: string;
   email: string;
   whatsapp: string;
+  /** Optional: when provided, creates a login account for the tenant portal. */
+  password?: string;
 }) {
   const d1 = getD1();
   await ensureRentalDatabase(d1);
   const id = createId("ten");
+  const userId = await createLinkedUserIfRequested(
+    input.password,
+    input.name,
+    input.email,
+    "tenant",
+  );
 
   await d1
     .prepare(
-      "INSERT INTO tenants (id, name, document, email, whatsapp, status) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO tenants (id, user_id, name, document, email, whatsapp, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
-    .bind(id, input.name, input.document, input.email, input.whatsapp, "active")
+    .bind(id, userId, input.name, input.document, input.email, input.whatsapp, "active")
     .run();
 
   return id;
@@ -201,16 +215,24 @@ export async function createReceiver(input: {
   document: string;
   email: string;
   mpAccount: string;
+  /** Optional: when provided, creates a login account for the receiver portal. */
+  password?: string;
 }) {
   const d1 = getD1();
   await ensureRentalDatabase(d1);
   const id = createId("rec");
+  const userId = await createLinkedUserIfRequested(
+    input.password,
+    input.name,
+    input.email,
+    "receiver",
+  );
 
   await d1
     .prepare(
-      "INSERT INTO receivers (id, name, document, email, mercado_pago_account, active) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO receivers (id, user_id, name, document, email, mercado_pago_account, active) VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
-    .bind(id, input.name, input.document, input.email, input.mpAccount, true)
+    .bind(id, userId, input.name, input.document, input.email, input.mpAccount, true)
     .run();
 
   return id;
@@ -260,6 +282,8 @@ export async function ensureRentalDatabase(d1: D1Binding = getD1()) {
     return;
   }
 
+  await ensureAuthTables(d1);
+
   await d1.batch([
     d1.prepare(
       "CREATE TABLE IF NOT EXISTS receivers (id text PRIMARY KEY NOT NULL, name text NOT NULL, document text NOT NULL, email text NOT NULL, mercado_pago_account text, active integer DEFAULT true NOT NULL)",
@@ -278,8 +302,111 @@ export async function ensureRentalDatabase(d1: D1Binding = getD1()) {
     ),
   ]);
 
+  // `receivers` may already exist from before authentication was added, so
+  // the column has to be backfilled instead of relying on CREATE TABLE.
+  await ensureColumn(d1, "receivers", "user_id", "user_id text REFERENCES users(id)");
+
   await seedIfEmpty(d1);
+  await seedAuthUsers(d1);
   initialized = true;
+}
+
+async function createLinkedUserIfRequested(
+  password: string | undefined,
+  name: string,
+  email: string,
+  role: "tenant" | "receiver",
+): Promise<string | null> {
+  if (!password) {
+    return null;
+  }
+
+  const userId = createId("usr");
+  const passwordHash = await hashPassword(password);
+  await createUser({ email, id: userId, name, passwordHash, role });
+  return userId;
+}
+
+/**
+ * Seeds an initial admin account plus demo logins for the seeded tenants and
+ * receivers, so every role can be tested right after the first deploy. Only
+ * runs once (checks the `users` table, independent from the domain-data
+ * seed) so it also backfills logins on a database that already had
+ * tenants/receivers before authentication existed.
+ */
+async function seedAuthUsers(d1: D1Binding) {
+  const count = await d1
+    .prepare("SELECT COUNT(*) AS total FROM users")
+    .first<{ total: number }>();
+
+  if ((count?.total ?? 0) > 0) {
+    return;
+  }
+
+  const adminPassword = "TrocarSenha!2026";
+  const demoPassword = "Demo123!";
+  const adminHash = await hashPassword(adminPassword);
+  const demoHash = await hashPassword(demoPassword);
+  const now = new Date().toISOString();
+
+  const tenantLinks = [
+    { email: "marina@example.com", id: "ten-marina", name: "Marina Souza" },
+    { email: "rafael@example.com", id: "ten-rafael", name: "Rafael Lima" },
+    { email: "carlos@example.com", id: "ten-carlos", name: "Carlos Mendes" },
+  ];
+  const receiverLinks = [
+    { email: "lucas@example.com", id: "rec-lucas", name: "Lucas" },
+    { email: "guilherme@example.com", id: "rec-guilherme", name: "Guilherme" },
+  ];
+
+  const statements = [
+    d1
+      .prepare(
+        "INSERT INTO users (id, name, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+      .bind(
+        "usr-admin",
+        "Administrador",
+        "sistemas@grupoflexivel.com.br",
+        adminHash,
+        "admin",
+        now,
+      ),
+  ];
+
+  for (const link of tenantLinks) {
+    const userId = `usr-${link.id}`;
+    statements.push(
+      d1
+        .prepare(
+          "INSERT INTO users (id, name, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(userId, link.name, link.email, demoHash, "tenant", now),
+    );
+    statements.push(
+      d1
+        .prepare("UPDATE tenants SET user_id = ? WHERE id = ?")
+        .bind(userId, link.id),
+    );
+  }
+
+  for (const link of receiverLinks) {
+    const userId = `usr-${link.id}`;
+    statements.push(
+      d1
+        .prepare(
+          "INSERT INTO users (id, name, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(userId, link.name, link.email, demoHash, "receiver", now),
+    );
+    statements.push(
+      d1
+        .prepare("UPDATE receivers SET user_id = ? WHERE id = ?")
+        .bind(userId, link.id),
+    );
+  }
+
+  await d1.batch(statements);
 }
 
 async function seedIfEmpty(d1: D1Binding) {

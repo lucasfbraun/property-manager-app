@@ -37,3 +37,15 @@ yarn-error.log*
 next-env.d.ts
 /dist/
 /.wrangler/
+tsconfig.tsbuildinfo
+
+# vinext build cache
+/.vinext/
+
+# nested/local package installs
+node_modules/
+work/node_modules
+
+# logs
+*.log
+work/*.log

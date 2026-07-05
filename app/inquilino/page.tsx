@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { formatCurrency, formatDate, getTenantPortalData } from "../lib/rentals";
 import { getRentalData } from "../lib/rental-repository";
+import { requireUser } from "../lib/session";
+import { LogoutButton } from "../components/LogoutButton";
+
+export const dynamic = "force-dynamic";
 
 const statusTone = {
   Aberta: "bg-[#DBEAFE] text-[#2563EB] ring-blue-200",
@@ -9,8 +13,26 @@ const statusTone = {
 };
 
 export default async function TenantPortal() {
+  const user = await requireUser(["tenant"]);
+
+  if (!user.tenantId) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC] px-4 text-[#0F172A]">
+        <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 text-center shadow-sm">
+          <p className="text-sm text-slate-600">
+            Sua conta ainda nao esta vinculada a um cadastro de inquilino.
+            Fale com o administrador.
+          </p>
+          <div className="mt-4">
+            <LogoutButton />
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   const rentalData = await getRentalData();
-  const portal = getTenantPortalData("ten-rafael", rentalData);
+  const portal = getTenantPortalData(user.tenantId, rentalData);
   const currentContract = portal.contracts[0];
   const openCharges = portal.charges.filter((charge) => charge.status !== "Paga");
 
@@ -18,16 +40,19 @@ export default async function TenantPortal() {
     <main className="min-h-screen bg-[#F8FAFC] px-4 py-5 text-[#0F172A] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <header className="mb-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <div>
-            <Link className="text-sm font-semibold text-[#2563EB]" href="/">
-              Voltar ao painel
-            </Link>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
-              Portal do inquilino
-            </h1>
-            <p className="mt-2 text-sm text-slate-600">
-              {portal.tenant.name} - {portal.tenant.email}
-            </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <Link className="text-sm font-semibold text-[#2563EB]" href="/">
+                Voltar ao painel
+              </Link>
+              <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
+                Portal do inquilino
+              </h1>
+              <p className="mt-2 text-sm text-slate-600">
+                {portal.tenant.name} - {portal.tenant.email}
+              </p>
+            </div>
+            <LogoutButton />
           </div>
           <div className="mt-4 w-fit rounded-md bg-[#DBEAFE] px-4 py-2">
             <p className="text-xs font-semibold uppercase text-[#2563EB]">

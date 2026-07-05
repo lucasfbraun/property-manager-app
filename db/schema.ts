@@ -4,12 +4,23 @@ export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
   role: text("role", { enum: ["admin", "receiver", "tenant"] }).notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const sessions = sqliteTable("sessions", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  expiresAt: text("expires_at").notNull(),
   createdAt: text("created_at").notNull(),
 });
 
 export const receivers = sqliteTable("receivers", {
   id: text("id").primaryKey(),
+  userId: text("user_id").references(() => users.id),
   name: text("name").notNull(),
   document: text("document").notNull(),
   email: text("email").notNull(),

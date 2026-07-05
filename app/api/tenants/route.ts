@@ -3,10 +3,12 @@ import { createTenant, deleteTenant } from "../../lib/rental-repository";
 export async function POST(request: Request) {
   try {
     const payload = (await request.json()) as Record<string, unknown>;
+    const password = optionalString(payload.password);
     const id = await createTenant({
       document: requiredString(payload.document, "document"),
       email: requiredString(payload.email, "email"),
       name: requiredString(payload.name, "name"),
+      password: password || undefined,
       whatsapp: requiredString(payload.whatsapp, "whatsapp"),
     });
 
@@ -27,11 +29,15 @@ export async function DELETE(request: Request) {
 }
 
 function requiredString(value: unknown, field: string) {
-  const parsed = typeof value === "string" ? value.trim() : "";
+  const parsed = optionalString(value);
   if (!parsed) {
     throw new Error(`${field} is required`);
   }
   return parsed;
+}
+
+function optionalString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function getErrorMessage(error: unknown) {

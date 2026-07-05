@@ -3,11 +3,13 @@ import { createReceiver, deleteReceiver } from "../../lib/rental-repository";
 export async function POST(request: Request) {
   try {
     const payload = (await request.json()) as Record<string, unknown>;
+    const password = optionalString(payload.password);
     const id = await createReceiver({
       document: requiredString(payload.document, "document"),
       email: requiredString(payload.email, "email"),
       mpAccount: optionalString(payload.mpAccount) || "Conta Mercado Pago pendente",
       name: requiredString(payload.name, "name"),
+      password: password || undefined,
     });
 
     return Response.json({ id }, { status: 201 });

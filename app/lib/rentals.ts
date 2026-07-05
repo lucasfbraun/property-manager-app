@@ -352,6 +352,51 @@ export function getTenantPortalData(
   };
 }
 
+export function getReceiverPortalData(
+  receiverId: string,
+  data?: {
+    tenants: Tenant[];
+    properties: Property[];
+    receivers: Receiver[];
+    contracts: Contract[];
+    charges?: Charge[];
+  },
+) {
+  const activeContracts = data?.contracts ?? contracts;
+  const activeTenants = data?.tenants ?? tenants;
+  const activeProperties = data?.properties ?? properties;
+  const activeReceivers = data?.receivers ?? receivers;
+  const activeCharges = data?.charges ?? charges;
+  const receiver = findById(activeReceivers, receiverId);
+  const receiverContracts = activeContracts.filter(
+    (contract) => contract.receiverId === receiver.id,
+  );
+  const receiverCharges = getPaymentProjections({
+    charges: activeCharges,
+    contracts: activeContracts,
+    properties: activeProperties,
+    receivers: activeReceivers,
+    tenants: activeTenants,
+  }).filter((charge) => charge.receiver.id === receiver.id);
+  const paidCharges = receiverCharges.filter((charge) => charge.status === "Paga");
+  const openCharges = receiverCharges.filter((charge) => charge.status !== "Paga");
+
+  return {
+    receiver,
+    contracts: receiverContracts.map((contract) => ({
+      ...contract,
+      property: findById(activeProperties, contract.propertyId),
+      tenant: findById(activeTenants, contract.tenantId),
+    })),
+    charges: receiverCharges,
+    totals: {
+      expected: receiverCharges.reduce((sum, charge) => sum + charge.amount, 0),
+      open: openCharges.reduce((sum, charge) => sum + charge.totalDue, 0),
+      received: paidCharges.reduce((sum, charge) => sum + charge.amount, 0),
+    },
+  };
+}
+
 export function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",

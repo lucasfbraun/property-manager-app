@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { whatsappAutomationConfig } from "../lib/integrations";
+import { requireUser } from "../lib/session";
+import { LogoutButton } from "../components/LogoutButton";
+
+export const dynamic = "force-dynamic";
 
 const flowSteps = [
   "Monolito identifica evento de cobranca",
@@ -19,11 +23,13 @@ const reminderEvents = [
   ["contract_expiring", "Contrato proximo do vencimento"],
 ];
 
-export default function IntegracoesPage() {
+export default async function IntegracoesPage() {
+  await requireUser(["admin"]);
+
   return (
     <main className="min-h-screen bg-[#F8FAFC] px-4 py-5 text-[#0F172A] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
-        <header className="mb-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <header className="mb-5 flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div>
             <Link className="text-sm font-semibold text-[#2563EB]" href="/">
               Voltar ao painel
@@ -35,8 +41,11 @@ export default function IntegracoesPage() {
               Configuracao planejada para WhatsApp usando n8n e WAHA.
             </p>
           </div>
-          <div className="mt-4 w-fit rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800">
-            Implementacao real pendente de credenciais
+          <div className="flex items-center gap-2">
+            <div className="w-fit rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800">
+              Implementacao real pendente de credenciais
+            </div>
+            <LogoutButton />
           </div>
         </header>
 

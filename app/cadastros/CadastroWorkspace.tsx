@@ -107,14 +107,25 @@ export function CadastroWorkspace({
     const document = String(formData.get("document") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim();
     const whatsapp = String(formData.get("whatsapp") ?? "").trim();
+    const password = String(formData.get("password") ?? "").trim();
     if (!name || !document || !email || !whatsapp) {
       setMessage("Preencha todos os campos obrigatorios do inquilino.");
       return;
     }
 
     try {
-      await postAndRefresh("/api/tenants", { document, email, name, whatsapp });
-      setMessage(`Inquilino ${name} salvo no banco.`);
+      await postAndRefresh("/api/tenants", {
+        document,
+        email,
+        name,
+        password: password || undefined,
+        whatsapp,
+      });
+      setMessage(
+        password
+          ? `Inquilino ${name} salvo com acesso ao portal.`
+          : `Inquilino ${name} salvo no banco (sem login no portal).`,
+      );
     } catch (error) {
       setMessage(getErrorMessage(error));
     }
@@ -142,6 +153,7 @@ export function CadastroWorkspace({
     const document = String(formData.get("document") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim();
     const mpAccount = String(formData.get("mpAccount") ?? "").trim();
+    const password = String(formData.get("password") ?? "").trim();
     if (!name || !document || !email) {
       setMessage("Preencha todos os campos obrigatorios do recebedor.");
       return;
@@ -153,8 +165,13 @@ export function CadastroWorkspace({
         email,
         mpAccount,
         name,
+        password: password || undefined,
       });
-      setMessage(`Recebedor ${name} salvo no banco.`);
+      setMessage(
+        password
+          ? `Recebedor ${name} salvo com acesso ao portal.`
+          : `Recebedor ${name} salvo no banco (sem login no portal).`,
+      );
     } catch (error) {
       setMessage(getErrorMessage(error));
     }
@@ -211,6 +228,12 @@ export function CadastroWorkspace({
           <Field label="CPF/CNPJ" name="document" />
           <Field label="E-mail" name="email" type="email" />
           <Field label="WhatsApp" name="whatsapp" />
+          <Field
+            label="Senha de acesso ao portal (opcional)"
+            name="password"
+            required={false}
+            type="password"
+          />
         </FormPanel>
 
         <FormPanel
@@ -236,6 +259,12 @@ export function CadastroWorkspace({
           <Field label="CPF/CNPJ" name="document" />
           <Field label="E-mail" name="email" type="email" />
           <Field label="Conta Mercado Pago" name="mpAccount" required={false} />
+          <Field
+            label="Senha de acesso ao portal (opcional)"
+            name="password"
+            required={false}
+            type="password"
+          />
         </FormPanel>
 
         <FormPanel

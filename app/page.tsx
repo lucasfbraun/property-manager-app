@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { formatCurrency, formatDate, getDashboardData } from "./lib/rentals";
 import { getRentalData } from "./lib/rental-repository";
+import { requireUser } from "./lib/session";
+import { LogoutButton } from "./components/LogoutButton";
+
+export const dynamic = "force-dynamic";
 
 const statusTone = {
   Aberta: "bg-[#DBEAFE] text-[#1D4ED8] ring-blue-200",
@@ -9,6 +13,7 @@ const statusTone = {
 };
 
 export default async function Home() {
+  const user = await requireUser(["admin"]);
   const rentalData = await getRentalData();
   const dashboard = getDashboardData(rentalData);
   const overdueCount = dashboard.projections.filter(
@@ -70,7 +75,10 @@ export default async function Home() {
                   com os dados persistidos no D1 local.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2 text-sm">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="rounded-md border border-slate-200 px-3 py-2 text-slate-600">
+                  {user.name}
+                </span>
                 <Link
                   className="rounded-md bg-[#2563EB] px-4 py-2.5 font-semibold text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700"
                   href="/cadastros"
@@ -83,6 +91,7 @@ export default async function Home() {
                 >
                   Ver portal
                 </Link>
+                <LogoutButton />
               </div>
             </div>
           </header>
