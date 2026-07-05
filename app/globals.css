@@ -1,11 +1,21 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
   --primary: #2563eb;
   --primary-soft: #dbeafe;
   --surface: #ffffff;
+}
+
+.dark {
+  --background: #05070b;
+  --foreground: #e2e8f0;
+  --primary: #3b82f6;
+  --primary-soft: rgba(59, 130, 246, 0.12);
+  --surface: rgba(15, 23, 42, 0.6);
 }
 
 @theme inline {
@@ -19,4 +29,37 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.dark body {
+  background-image: radial-gradient(
+      60rem 30rem at 10% -10%,
+      rgba(37, 99, 235, 0.16),
+      transparent
+    ),
+    radial-gradient(50rem 25rem at 110% 10%, rgba(34, 211, 238, 0.1), transparent);
+  background-attachment: fixed;
+}
+
+@layer components {
+  .surface-card {
+    @apply rounded-lg border border-slate-200 bg-white shadow-sm transition-colors dark:border-white/10 dark:bg-slate-900/60 dark:shadow-none dark:backdrop-blur-xl;
+  }
+
+  .badge-soft {
+    @apply rounded-full bg-[#DBEAFE] px-3 py-1 text-xs font-semibold text-[#2563EB] dark:bg-blue-500/10 dark:text-blue-300 dark:ring-1 dark:ring-inset dark:ring-blue-500/30;
+  }
+
+  .btn-primary {
+    @apply rounded-md bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 dark:shadow-[0_0_24px_-6px_rgba(59,130,246,0.8)] dark:hover:bg-blue-500;
+  }
+
+  .btn-secondary {
+    @apply rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-[#DBEAFE] dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10;
+  }
+
+  .input-field {
+    @apply mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/20;
+  }
 }

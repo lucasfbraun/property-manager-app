@@ -214,7 +214,7 @@ export function CadastroWorkspace({
         <Metric label="Aluguel mensal" value={formatCurrency(totals.monthlyRent)} />
       </section>
 
-      <div className="rounded-lg border border-blue-200 bg-[#DBEAFE] px-4 py-3 text-sm font-semibold text-[#1D4ED8] shadow-sm">
+      <div className="rounded-lg border border-blue-200 bg-[#DBEAFE] px-4 py-3 text-sm font-semibold text-[#1D4ED8] shadow-sm dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300 dark:shadow-none">
         {isSaving ? "Salvando..." : message}
       </div>
 
@@ -342,11 +342,11 @@ export function CadastroWorkspace({
         />
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="surface-card p-4">
         <h2 className="mb-3 font-semibold">Contratos cadastrados</h2>
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+            <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5 dark:text-slate-400">
               <tr>
                 <th className="px-3 py-3">Inquilino</th>
                 <th className="px-3 py-3">Imovel</th>
@@ -356,7 +356,7 @@ export function CadastroWorkspace({
                 <th className="px-3 py-3 text-right">Acoes</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-white/10">
               {state.contracts.map((contract) => {
                 const tenant = state.tenants.find(
                   (item) => item.id === contract.tenantId,
@@ -368,23 +368,26 @@ export function CadastroWorkspace({
                   (item) => item.id === contract.receiverId,
                 );
                 return (
-                  <tr className="hover:bg-slate-50" key={contract.id}>
+                  <tr
+                    className="hover:bg-slate-50 dark:hover:bg-white/5"
+                    key={contract.id}
+                  >
                     <td className="px-3 py-3 font-medium">{tenant?.name}</td>
-                    <td className="px-3 py-3 text-neutral-600">
+                    <td className="px-3 py-3 text-neutral-600 dark:text-slate-400">
                       {property?.name}
                     </td>
-                    <td className="px-3 py-3 text-neutral-600">
+                    <td className="px-3 py-3 text-neutral-600 dark:text-slate-400">
                       {receiver?.name}
                     </td>
                     <td className="px-3 py-3 text-right font-medium">
                       {formatCurrency(contract.monthlyRent)}
                     </td>
-                    <td className="px-3 py-3 text-neutral-600">
+                    <td className="px-3 py-3 text-neutral-600 dark:text-slate-400">
                       Dia {contract.dueDay}
                     </td>
                     <td className="px-3 py-3 text-right">
                       <button
-                        className="rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10"
                         disabled={isSaving}
                         onClick={() =>
                           deleteAndRefresh(
@@ -427,25 +430,25 @@ function ManagementPanel<T extends { id: string }>({
   title: string;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="surface-card p-4">
       <h2 className="font-semibold">{title}</h2>
       <div className="mt-3 space-y-2">
         {items.length > 0 ? (
           items.map((item) => (
             <div
-              className="flex min-h-20 items-center justify-between gap-3 rounded-md border border-slate-200 bg-[#F8FAFC] px-3 py-3"
+              className="flex min-h-20 items-center justify-between gap-3 rounded-md border border-slate-200 bg-[#F8FAFC] px-3 py-3 dark:border-white/10 dark:bg-white/5"
               key={item.id}
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">
                   {renderTitle(item)}
                 </p>
-                <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
                   {renderSubtitle(item)}
                 </p>
               </div>
               <button
-                className="shrink-0 rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="shrink-0 rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10"
                 disabled={isSaving}
                 onClick={() => onDelete(item)}
                 type="button"
@@ -455,7 +458,7 @@ function ManagementPanel<T extends { id: string }>({
             </div>
           ))
         ) : (
-          <p className="rounded-md border border-dashed border-slate-200 bg-[#F8FAFC] px-3 py-4 text-sm text-slate-500">
+          <p className="rounded-md border border-dashed border-slate-200 bg-[#F8FAFC] px-3 py-4 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-400">
             {emptyText}
           </p>
         )}
@@ -476,17 +479,13 @@ function FormPanel({
   title: string;
 }) {
   return (
-    <form
-      action={action}
-      className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
-    >
+    <form action={action} className="surface-card p-4">
       <h2 className="font-semibold">{title}</h2>
-      <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+      <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+        {description}
+      </p>
       <div className="mt-4 space-y-3">{children}</div>
-      <button
-        className="mt-4 rounded-md bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700"
-        type="submit"
-      >
+      <button className="btn-primary mt-4" type="submit">
         Adicionar
       </button>
     </form>
@@ -506,13 +505,10 @@ function Field({
 }) {
   return (
     <label className="block text-sm">
-      <span className="font-medium text-slate-700">{label}</span>
-      <input
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100"
-        name={name}
-        required={required}
-        type={type}
-      />
+      <span className="font-medium text-slate-700 dark:text-slate-300">
+        {label}
+      </span>
+      <input className="input-field" name={name} required={required} type={type} />
     </label>
   );
 }
@@ -528,12 +524,10 @@ function Select({
 }) {
   return (
     <label className="block text-sm">
-      <span className="font-medium text-slate-700">{label}</span>
-      <select
-        className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100"
-        name={name}
-        required
-      >
+      <span className="font-medium text-slate-700 dark:text-slate-300">
+        {label}
+      </span>
+      <select className="input-field" name={name} required>
         <option value="">Selecione</option>
         {options.map((option) => {
           const normalized =
@@ -551,8 +545,10 @@ function Select({
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
+    <div className="surface-card p-4">
+      <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
+        {label}
+      </p>
       <p className="mt-2 text-xl font-semibold">{value}</p>
     </div>
   );

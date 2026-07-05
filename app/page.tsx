@@ -3,13 +3,14 @@ import { formatCurrency, formatDate, getDashboardData } from "./lib/rentals";
 import { getRentalData } from "./lib/rental-repository";
 import { requireUser } from "./lib/session";
 import { LogoutButton } from "./components/LogoutButton";
+import { ThemeToggle } from "./components/ThemeToggle";
 
 export const dynamic = "force-dynamic";
 
 const statusTone = {
-  Aberta: "bg-[#DBEAFE] text-[#1D4ED8] ring-blue-200",
-  Vencida: "bg-rose-50 text-rose-700 ring-rose-200",
-  Paga: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  Aberta: "bg-[#DBEAFE] text-[#1D4ED8] ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/30",
+  Vencida: "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30",
+  Paga: "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30",
 };
 
 export default async function Home() {
@@ -24,9 +25,9 @@ export default async function Home() {
   ).length;
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
+    <main className="min-h-screen bg-[#F8FAFC] text-[#0F172A] dark:bg-transparent dark:text-slate-100">
       <div className="flex min-h-screen">
-        <aside className="hidden w-72 border-r border-slate-200 bg-[#0F172A] px-4 py-5 text-white lg:block">
+        <aside className="hidden w-72 border-r border-slate-200 bg-[#0F172A] px-4 py-5 text-white dark:border-white/10 dark:bg-slate-950/40 dark:backdrop-blur-xl lg:block">
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
             <p className="text-xs font-semibold uppercase text-blue-200">
               Controle patrimonial
@@ -56,41 +57,34 @@ export default async function Home() {
         </aside>
 
         <section className="flex-1 px-4 py-5 sm:px-6 lg:px-8">
-          <header className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <header className="surface-card p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-[#DBEAFE] px-3 py-1 text-xs font-semibold text-[#2563EB]">
-                    Junho de 2026
-                  </span>
-                  <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600">
+                  <span className="badge-soft">Junho de 2026</span>
+                  <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 dark:border-white/10 dark:text-slate-400">
                     MVP em desenvolvimento
                   </span>
                 </div>
                 <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
                   Controle de recebimentos
                 </h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
                   Acompanhe cobrancas, repasses por recebedor e contratos ativos
                   com os dados persistidos no D1 local.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="rounded-md border border-slate-200 px-3 py-2 text-slate-600">
+                <span className="rounded-md border border-slate-200 px-3 py-2 text-slate-600 dark:border-white/10 dark:text-slate-400">
                   {user.name}
                 </span>
-                <Link
-                  className="rounded-md bg-[#2563EB] px-4 py-2.5 font-semibold text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700"
-                  href="/cadastros"
-                >
+                <Link className="btn-primary" href="/cadastros">
                   Novo cadastro
                 </Link>
-                <Link
-                  className="rounded-md border border-slate-300 bg-white px-4 py-2.5 font-semibold text-slate-800 hover:bg-[#DBEAFE]"
-                  href="/inquilino"
-                >
+                <Link className="btn-secondary" href="/inquilino">
                   Ver portal
                 </Link>
+                <ThemeToggle />
                 <LogoutButton />
               </div>
             </div>
@@ -130,24 +124,21 @@ export default async function Home() {
           </section>
 
           <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_380px]">
-            <div
-              className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
-              id="cobrancas"
-            >
-              <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 md:flex-row md:items-center md:justify-between">
+            <div className="surface-card overflow-hidden" id="cobrancas">
+              <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 dark:border-white/10 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h3 className="font-semibold">Cobrancas do periodo</h3>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                     Valores atualizados com juros quando houver atraso.
                   </p>
                 </div>
-                <span className="w-fit rounded-md bg-[#DBEAFE] px-3 py-2 text-sm font-semibold text-[#2563EB]">
+                <span className="w-fit rounded-md bg-[#DBEAFE] px-3 py-2 text-sm font-semibold text-[#2563EB] dark:bg-blue-500/10 dark:text-blue-300">
                   {overdueCount} em atraso
                 </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                  <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5 dark:text-slate-400">
                     <tr>
                       <th className="px-4 py-3">Inquilino</th>
                       <th className="px-4 py-3">Imovel</th>
@@ -157,19 +148,22 @@ export default async function Home() {
                       <th className="px-4 py-3">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/10">
                     {dashboard.projections.map((charge) => (
-                      <tr className="hover:bg-slate-50" key={charge.id}>
+                      <tr
+                        className="hover:bg-slate-50 dark:hover:bg-white/5"
+                        key={charge.id}
+                      >
                         <td className="px-4 py-3 font-semibold">
                           {charge.tenant.name}
                         </td>
-                        <td className="px-4 py-3 text-slate-600">
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                           {charge.property.name}
                         </td>
-                        <td className="px-4 py-3 text-slate-600">
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                           {charge.receiver.name}
                         </td>
-                        <td className="px-4 py-3 text-slate-600">
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                           {formatDate(charge.dueDate)}
                         </td>
                         <td className="px-4 py-3 text-right font-semibold">
@@ -198,17 +192,17 @@ export default async function Home() {
                 <div className="space-y-3">
                   {dashboard.byReceiver.map((item) => (
                     <div
-                      className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                      className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5"
                       key={item.receiver.id}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-semibold">{item.receiver.name}</p>
-                          <p className="mt-1 text-xs text-slate-500">
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                             {item.receiver.mpAccount}
                           </p>
                         </div>
-                        <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-[#2563EB]">
+                        <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-[#2563EB] dark:bg-white/10 dark:text-blue-300">
                           ativo
                         </span>
                       </div>
@@ -232,7 +226,7 @@ export default async function Home() {
               </Panel>
 
               <Panel title="Proximas decisoes">
-                <ul className="space-y-2 text-sm text-slate-700">
+                <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                   <li>Definir modelo Mercado Pago por recebedor.</li>
                   <li>Configurar credenciais WAHA e n8n.</li>
                   <li>Validar regra padrao de multa e juros.</li>
@@ -240,14 +234,11 @@ export default async function Home() {
               </Panel>
 
               <Panel title="WhatsApp">
-                <p className="text-sm leading-6 text-slate-700">
+                <p className="text-sm leading-6 text-slate-700 dark:text-slate-300">
                   Decisao registrada: usar n8n como orquestrador e WAHA como
                   gateway de envio das mensagens.
                 </p>
-                <Link
-                  className="mt-3 inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-[#DBEAFE]"
-                  href="/integracoes"
-                >
+                <Link className="btn-secondary mt-3 inline-flex" href="/integracoes">
                   Ver integracao
                 </Link>
               </Panel>
@@ -256,7 +247,7 @@ export default async function Home() {
 
           <section className="mt-5 grid gap-5 xl:grid-cols-2">
             <Panel id="contratos" title="Contratos ativos">
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-slate-100 dark:divide-white/10">
                 {rentalData.contracts.map((contract) => {
                   const tenant = rentalData.tenants.find(
                     (item) => item.id === contract.tenantId,
@@ -269,7 +260,7 @@ export default async function Home() {
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="font-semibold">{property?.name}</p>
-                          <p className="text-sm text-slate-500">
+                          <p className="text-sm text-slate-500 dark:text-slate-400">
                             {tenant?.name} - vencimento dia {contract.dueDay}
                           </p>
                         </div>
@@ -287,14 +278,14 @@ export default async function Home() {
               <div className="grid gap-3 sm:grid-cols-3">
                 {rentalData.tenants.map((tenant) => (
                   <div
-                    className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                    className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5"
                     key={tenant.id}
                   >
                     <p className="font-semibold">{tenant.name}</p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       {tenant.whatsapp}
                     </p>
-                    <p className="mt-3 text-xs font-semibold text-slate-700">
+                    <p className="mt-3 text-xs font-semibold text-slate-700 dark:text-slate-300">
                       {tenant.status}
                     </p>
                   </div>
@@ -348,17 +339,21 @@ function Metric({
   tone?: "neutral" | "green" | "amber" | "red";
 }) {
   const tones = {
-    neutral: "border-slate-200 bg-white",
-    green: "border-emerald-200 bg-emerald-50",
-    amber: "border-amber-200 bg-amber-50",
-    red: "border-rose-200 bg-rose-50",
+    neutral: "border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900/60",
+    green: "border-emerald-200 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/10",
+    amber: "border-amber-200 bg-amber-50 dark:border-amber-500/20 dark:bg-amber-500/10",
+    red: "border-rose-200 bg-rose-50 dark:border-rose-500/20 dark:bg-rose-500/10",
   };
 
   return (
-    <div className={`rounded-lg border p-4 shadow-sm ${tones[tone]}`}>
-      <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
+    <div className={`rounded-lg border p-4 shadow-sm transition-colors dark:shadow-none ${tones[tone]}`}>
+      <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
+        {label}
+      </p>
       <p className="mt-2 text-xl font-semibold">{value}</p>
-      {meta ? <p className="mt-1 text-xs text-slate-500">{meta}</p> : null}
+      {meta ? (
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{meta}</p>
+      ) : null}
     </div>
   );
 }
@@ -373,10 +368,7 @@ function Panel({
   title: string;
 }) {
   return (
-    <section
-      className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
-      id={id}
-    >
+    <section className="surface-card p-4" id={id}>
       <h3 className="mb-3 font-semibold">{title}</h3>
       {children}
     </section>
@@ -386,7 +378,7 @@ function Panel({
 function SmallStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-slate-500">{label}</p>
+      <p className="text-slate-500 dark:text-slate-400">{label}</p>
       <p className="mt-1 font-semibold">{value}</p>
     </div>
   );

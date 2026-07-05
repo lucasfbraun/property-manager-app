@@ -47,19 +47,31 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC] px-4">
-      <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-[#0F172A]">Entrar</h1>
-        <p className="mt-1 text-sm text-slate-500">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#F8FAFC] px-4 dark:bg-transparent">
+      <div className="pointer-events-none absolute inset-0 hidden dark:block">
+        <div className="absolute left-1/2 top-0 h-[32rem] w-[32rem] -translate-x-1/2 -translate-y-1/3 rounded-full bg-blue-600/20 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-96 w-96 translate-x-1/4 translate-y-1/4 rounded-full bg-cyan-500/10 blur-3xl" />
+      </div>
+
+      <div className="surface-card relative w-full max-w-sm p-6">
+        <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+          Gestao de Alugueis
+        </p>
+        <h1 className="mt-1 text-xl font-semibold text-[#0F172A] dark:text-slate-100">
+          Entrar
+        </h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Acesse o painel de gestao de alugueis.
         </p>
 
         <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
           <label className="block text-sm">
-            <span className="font-medium text-slate-700">E-mail</span>
+            <span className="font-medium text-slate-700 dark:text-slate-300">
+              E-mail
+            </span>
             <input
               autoComplete="username"
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100"
+              className="input-field"
               onChange={(event) => setEmail(event.target.value)}
               required
               type="email"
@@ -68,10 +80,12 @@ export default function LoginPage() {
           </label>
 
           <label className="block text-sm">
-            <span className="font-medium text-slate-700">Senha</span>
+            <span className="font-medium text-slate-700 dark:text-slate-300">
+              Senha
+            </span>
             <input
               autoComplete="current-password"
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100"
+              className="input-field"
               onChange={(event) => setPassword(event.target.value)}
               required
               type="password"
@@ -80,16 +94,12 @@ export default function LoginPage() {
           </label>
 
           {error ? (
-            <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
               {error}
             </p>
           ) : null}
 
-          <button
-            className="w-full rounded-md bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isSubmitting}
-            type="submit"
-          >
+          <button className="btn-primary w-full" disabled={isSubmitting} type="submit">
             {isSubmitting ? "Entrando..." : "Entrar"}
           </button>
         </form>
