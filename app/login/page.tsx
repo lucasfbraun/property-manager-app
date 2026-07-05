@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -30,17 +28,6 @@ export default function LoginPage() {
         throw new Error(result.error ?? "Nao foi possivel entrar.");
       }
 
-      // Confirms the session cookie actually took effect before navigating,
-      // so a cookie/framework issue shows a clear message instead of just
-      // silently bouncing back to /login.
-      const check = await fetch("/api/auth/me", { cache: "no-store" });
-      const checkResult = (await check.json()) as { user?: unknown };
-      if (!checkResult.user) {
-        throw new Error(
-          "Login aceito pelo servidor, mas a sessao nao foi reconhecida logo em seguida (o cookie pode nao ter sido salvo pelo navegador). Tente novamente; se persistir, avise o suporte.",
-        );
-      }
-
       const destination =
         result.role === "tenant"
           ? "/inquilino"
@@ -48,11 +35,13 @@ export default function LoginPage() {
             ? "/recebedor"
             : "/";
 
-      router.push(destination);
-      router.refresh();
+      // Use a full browser navigation instead of the client-side router.
+      // The session cookie is set correctly by the server, but the soft
+      // (client-side) navigation was not actually leaving /login in this
+      // environment. A full reload always picks up the new session.
+      window.location.assign(destination);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro inesperado.");
-    } finally {
       setIsSubmitting(false);
     }
   }

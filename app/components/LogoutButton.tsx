@@ -1,20 +1,19 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export function LogoutButton() {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleLogout() {
     setIsLoading(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/login");
-      router.refresh();
     } finally {
-      setIsLoading(false);
+      // Full navigation, same reasoning as the login page: client-side
+      // router transitions were not reliably leaving the current page in
+      // this environment.
+      window.location.assign("/login");
     }
   }
 
