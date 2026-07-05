@@ -12,10 +12,7 @@
     {
       "binding": "DB",
       "database_name": "property-manager-db",
-      // Replace with the real database_id after running:
-      //   npx wrangler d1 create property-manager-db
-      // or creating it from the Cloudflare dashboard (Workers & Pages > D1 SQL Database).
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+      "database_id": "eae4e82d-e0e0-483e-8247-e5c471c8d0aa"
     }
   ],
   "observability": {
