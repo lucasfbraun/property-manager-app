@@ -63,3 +63,18 @@ body {
     @apply mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/20;
   }
 }
+
+/* Native <option> popups are rendered opaque by the browser, so the
+   translucent dark-mode background used on .input-field (bg-white/5) does
+   not carry over to the dropdown list. Without this, option text (light
+   color) sits on a light popup background and becomes invisible until
+   hovered. Give the popup itself explicit, solid colors instead. */
+select.input-field option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+.dark select.input-field option {
+  background-color: #0b1220;
+  color: #e2e8f0;
+}
