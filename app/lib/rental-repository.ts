@@ -46,6 +46,7 @@ type ReceiverRow = {
   mercado_pago_account: string | null;
   mp_access_token: string | null;
   mp_connected_at: string | null;
+  mp_live_mode: number | null;
 };
 
 type ContractRow = {
@@ -475,6 +476,7 @@ export async function ensureRentalDatabase(d1: D1Binding = getD1()) {
   await ensureColumn(d1, "receivers", "mp_refresh_token", "mp_refresh_token text");
   await ensureColumn(d1, "receivers", "mp_token_expires_at", "mp_token_expires_at text");
   await ensureColumn(d1, "receivers", "mp_connected_at", "mp_connected_at text");
+  await ensureColumn(d1, "receivers", "mp_live_mode", "mp_live_mode integer");
   await ensureColumn(d1, "charges", "pix_qr_code", "pix_qr_code text");
   await ensureColumn(d1, "charges", "pix_qr_code_base64", "pix_qr_code_base64 text");
   await ensureColumn(d1, "charges", "pix_expires_at", "pix_expires_at text");
@@ -759,6 +761,7 @@ function mapReceiver(row: ReceiverRow): Receiver {
     mpAccount: row.mercado_pago_account ?? "Conta Mercado Pago pendente",
     mpConnected: Boolean(row.mp_access_token),
     mpConnectedAt: row.mp_connected_at,
+    mpLiveMode: row.mp_live_mode === null ? null : Boolean(row.mp_live_mode),
     name: row.name,
   };
 }

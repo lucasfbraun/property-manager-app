@@ -138,6 +138,14 @@ export async function exchangeCodeForTokens(
   });
 }
 
+/** TEST- prefixed access tokens are sandbox-only, regardless of what live_mode reports. */
+function isLiveToken(token: MpTokenResponse): boolean {
+  if (token.access_token.startsWith("TEST-")) {
+    return false;
+  }
+  return token.live_mode ?? true;
+}
+
 export async function saveReceiverConnection(
   receiverId: string,
   token: MpTokenResponse,
@@ -147,7 +155,7 @@ export async function saveReceiverConnection(
   await d1
     .prepare(
       `UPDATE receivers SET mp_user_id = ?, mp_access_token = ?, mp_refresh_token = ?,
-        mp_token_expires_at = ?, mp_connected_at = ?
+        mp_token_expires_at = ?, mp_connected_at = ?, mp_live_mode = ?
        WHERE id = ?`,
     )
     .bind(
@@ -156,6 +164,9 @@ export async function saveReceiverConnection(
       token.refresh_token ?? null,
       expiresAt,
       new Date().toISOString(),
+      // live_mode comes back from MP's /oauth/token response; when absent we
+      // infer it from the access token prefix (TEST- tokens are sandbox-only).
+      isLiveToken(token) ? 1 : 0,
       receiverId,
     )
     .run();

@@ -41,6 +41,8 @@ export type Receiver = {
   mpAccount: string;
   mpConnected: boolean;
   mpConnectedAt: string | null;
+  /** null = never connected; true = live/production token; false = TEST (sandbox) token. */
+  mpLiveMode: boolean | null;
 };
 
 export type Tenant = {
@@ -120,6 +122,7 @@ export const receivers: Receiver[] = [
     mpAccount: "Mercado Pago Lucas",
     mpConnected: false,
     mpConnectedAt: null,
+    mpLiveMode: null,
   },
   {
     id: "rec-guilherme",
@@ -129,6 +132,7 @@ export const receivers: Receiver[] = [
     mpAccount: "Mercado Pago Guilherme",
     mpConnected: false,
     mpConnectedAt: null,
+    mpLiveMode: null,
   },
 ];
 
