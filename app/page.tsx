@@ -4,6 +4,19 @@ import { getRentalData } from "./lib/rental-repository";
 import { requireUser } from "./lib/session";
 import { LogoutButton } from "./components/LogoutButton";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { MobileSidebar, type MobileNavLink } from "./components/MobileSidebar";
+
+const NAV_LINKS: MobileNavLink[] = [
+  { active: true, href: "#dashboard", label: "Dashboard" },
+  { href: "#cobrancas", label: "Cobrancas" },
+  { href: "#contratos", label: "Contratos" },
+  { href: "#inquilinos", label: "Inquilinos" },
+  { href: "/cadastros", label: "Cadastros" },
+  { href: "/contratos", label: "Contratos e assinaturas" },
+  { href: "/rateio-agua", label: "Rateio de agua" },
+  { href: "/integracoes", label: "Integracoes" },
+  { href: "/inquilino", label: "Portal do inquilino" },
+];
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +72,13 @@ export default async function Home() {
         </aside>
 
         <section className="flex-1 px-4 py-5 sm:px-6 lg:px-8">
+          <div className="mb-4 flex items-center justify-between lg:hidden">
+            <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+              Gestao de Alugueis
+            </span>
+            <MobileSidebar links={NAV_LINKS} />
+          </div>
+
           <header className="surface-card p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
