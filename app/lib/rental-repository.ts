@@ -6,6 +6,7 @@ import {
   createUser,
 } from "./auth-repository";
 import { ensureContractDocumentTables } from "./contract-documents";
+import { ensureInspectionTables } from "./inspections";
 import {
   charges,
   contracts,
@@ -67,6 +68,8 @@ type ContractRow = {
   signed_uploaded_at: string | null;
   reviewed_at: string | null;
   review_note: string | null;
+  generated_document_key: string | null;
+  generated_document_updated_at: string | null;
 };
 
 type ChargeRow = {
@@ -94,7 +97,7 @@ export type RentalData = {
 const CONTRACT_COLUMNS = `id, property_id, tenant_id, receiver_id, monthly_rent, due_day,
   starts_at, ends_at, fine_rate, monthly_interest_rate, grace_days, status,
   template_id, contract_text, signature_status, signed_file_name, signed_uploaded_at,
-  reviewed_at, review_note`;
+  reviewed_at, review_note, generated_document_key, generated_document_updated_at`;
 
 export async function getRentalData(): Promise<RentalData> {
   const d1 = getD1();
@@ -453,6 +456,12 @@ export async function ensureRentalDatabase(d1: D1Binding = getD1()) {
     d1.prepare(
       "CREATE TABLE IF NOT EXISTS charges (id text PRIMARY KEY NOT NULL, contract_id text NOT NULL, receiver_id text NOT NULL, reference text NOT NULL, due_date text NOT NULL, original_amount real NOT NULL, status text NOT NULL, mercado_pago_payment_id text, payment_url text)",
     ),
+    // Previously only created by the (stale/unapplied) Drizzle migration;
+    // provisioned here too so a fresh D1 database works without depending on
+    // `db:migrate:remote` having been run first (see recordApprovedPayment).
+    d1.prepare(
+      "CREATE TABLE IF NOT EXISTS payments (id text PRIMARY KEY NOT NULL, charge_id text NOT NULL, amount_paid real NOT NULL, net_amount real, fees real, method text NOT NULL, status text NOT NULL, paid_at text, external_id text)",
+    ),
   ]);
 
   // `receivers` may already exist from before authentication was added, so
@@ -471,6 +480,7 @@ export async function ensureRentalDatabase(d1: D1Binding = getD1()) {
   await ensureColumn(d1, "charges", "pix_expires_at", "pix_expires_at text");
 
   await ensureContractDocumentTables(d1);
+  await ensureInspectionTables(d1);
 
   await seedIfEmpty(d1);
   await seedAuthUsers(d1);
@@ -759,6 +769,8 @@ function mapContract(row: ContractRow): Contract {
     dueDay: row.due_day,
     endsAt: row.ends_at,
     fineRate: row.fine_rate,
+    generatedDocumentKey: row.generated_document_key,
+    generatedDocumentUpdatedAt: row.generated_document_updated_at,
     graceDays: row.grace_days,
     id: row.id,
     monthlyInterestRate: row.monthly_interest_rate,

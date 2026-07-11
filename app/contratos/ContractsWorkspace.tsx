@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { signatureStatusLabel, type SignatureStatus } from "../lib/rentals";
+import { InspectionPhotosManager } from "./InspectionPhotosManager";
+import { OccurrencesPanel } from "./OccurrencesPanel";
 
 type TemplateItem = {
   id: string;
@@ -49,6 +51,9 @@ export function ContractsWorkspace({
   const [selectedTemplateByContract, setSelectedTemplateByContract] = useState<
     Record<string, string>
   >({});
+  const [expandedInspectionContractId, setExpandedInspectionContractId] = useState<
+    string | null
+  >(null);
 
   async function refreshAll() {
     const [templatesRes, rentalsRes] = await Promise.all([
@@ -347,48 +352,82 @@ export function ContractsWorkspace({
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/10">
               {contracts.map((contract) => (
-                <tr key={contract.id}>
-                  <td className="px-3 py-3 font-medium">{contract.tenantName}</td>
-                  <td className="px-3 py-3 text-neutral-600 dark:text-slate-400">
-                    {contract.propertyName}
-                  </td>
-                  <td className="px-3 py-3">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${statusTone[contract.signatureStatus]}`}
-                    >
-                      {signatureStatusLabel(contract.signatureStatus)}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3">
-                    <select
-                      className="input-field"
-                      defaultValue={contract.templateId ?? ""}
-                      onChange={(event) =>
-                        setSelectedTemplateByContract((prev) => ({
-                          ...prev,
-                          [contract.id]: event.target.value,
-                        }))
-                      }
-                    >
-                      <option value="">Selecione um modelo</option>
-                      {templates.map((template) => (
-                        <option key={template.id} value={template.id}>
-                          {template.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-3 py-3 text-right">
-                    <button
-                      className="btn-secondary"
-                      disabled={isSaving}
-                      onClick={() => generateDocument(contract.id)}
-                      type="button"
-                    >
-                      {contract.templateId ? "Atualizar contrato" : "Gerar contrato"}
-                    </button>
-                  </td>
-                </tr>
+                <Fragment key={contract.id}>
+                  <tr>
+                    <td className="px-3 py-3 font-medium">{contract.tenantName}</td>
+                    <td className="px-3 py-3 text-neutral-600 dark:text-slate-400">
+                      {contract.propertyName}
+                    </td>
+                    <td className="px-3 py-3">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${statusTone[contract.signatureStatus]}`}
+                      >
+                        {signatureStatusLabel(contract.signatureStatus)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      <select
+                        className="input-field"
+                        defaultValue={contract.templateId ?? ""}
+                        onChange={(event) =>
+                          setSelectedTemplateByContract((prev) => ({
+                            ...prev,
+                            [contract.id]: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Selecione um modelo</option>
+                        {templates.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <button
+                          className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
+                          onClick={() =>
+                            setExpandedInspectionContractId((current) =>
+                              current === contract.id ? null : contract.id,
+                            )
+                          }
+                          type="button"
+                        >
+                          {expandedInspectionContractId === contract.id
+                            ? "Fechar vistoria"
+                            : "Vistoria (fotos)"}
+                        </button>
+                        <button
+                          className="btn-secondary"
+                          disabled={isSaving}
+                          onClick={() => generateDocument(contract.id)}
+                          type="button"
+                        >
+                          {contract.templateId ? "Atualizar contrato" : "Gerar contrato"}
+                        </button>
+                        {contract.templateId ? (
+                          <a
+                            className="btn-primary"
+                            href={`/api/contracts/document?contractId=${encodeURIComponent(contract.id)}`}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            Ver PDF
+                          </a>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                  {expandedInspectionContractId === contract.id ? (
+                    <tr>
+                      <td className="bg-transparent px-3 pb-4" colSpan={5}>
+                        <InspectionPhotosManager contractId={contract.id} />
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -453,6 +492,8 @@ export function ContractsWorkspace({
           </p>
         )}
       </section>
+
+      <OccurrencesPanel />
     </div>
   );
 }

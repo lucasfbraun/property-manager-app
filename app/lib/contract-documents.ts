@@ -1,6 +1,8 @@
 import { getD1, getR2, type D1Binding } from "../../db";
 import { ensureColumn } from "./auth-repository";
 import { formatCurrency, formatDate, type SignatureStatus } from "./rentals";
+import { loadInspectionPhotosForPdf } from "./inspections";
+import { buildContractPdf } from "./contract-pdf";
 
 export type ContractTemplate = {
   id: string;
@@ -260,15 +262,70 @@ export async function generateContractDocument(input: {
   const variables = buildContractVariables(contractRow);
   const contractText = renderContractTemplate(templateRow.content, variables);
 
+  // Embeds the vistoria (property inspection) photos, if any were taken,
+  // directly into the generated PDF: the tenant's signature then covers both
+  // the contract terms and the photographic record of the property's state.
+  const photos = await loadInspectionPhotosForPdf(input.contractId);
+  const pdfBytes = await buildContractPdf({ contractText, photos });
+
+  const previousKeyRow = await d1
+    .prepare("SELECT generated_document_key FROM contracts WHERE id = ?")
+    .bind(input.contractId)
+    .first<{ generated_document_key: string | null }>();
+
+  const generatedDocumentKey = `contracts/${input.contractId}/generated-${Date.now()}.pdf`;
+  await getR2().put(generatedDocumentKey, pdfBytes, {
+    httpMetadata: { contentType: "application/pdf" },
+  });
+
   await d1
     .prepare(
       `UPDATE contracts SET template_id = ?, contract_text = ?, signature_status = 'awaiting_signature',
         signed_document_key = NULL, signed_file_name = NULL, signed_uploaded_at = NULL,
-        reviewed_at = NULL, review_note = NULL
+        reviewed_at = NULL, review_note = NULL, generated_document_key = ?, generated_document_updated_at = ?
        WHERE id = ?`,
     )
-    .bind(input.templateId, contractText, input.contractId)
+    .bind(
+      input.templateId,
+      contractText,
+      generatedDocumentKey,
+      new Date().toISOString(),
+      input.contractId,
+    )
     .run();
+
+  if (previousKeyRow?.generated_document_key) {
+    try {
+      await getR2().delete(previousKeyRow.generated_document_key);
+    } catch (error) {
+      console.error("[contract-documents] falha ao remover PDF gerado antigo do R2:", error);
+    }
+  }
+}
+
+/** Streams the generated (unsigned) contract PDF — includes vistoria photos when present. */
+export async function getGeneratedDocumentBinary(
+  contractId: string,
+): Promise<{ bytes: ArrayBuffer; fileName: string } | null> {
+  const d1 = getD1();
+  const row = await d1
+    .prepare("SELECT generated_document_key FROM contracts WHERE id = ?")
+    .bind(contractId)
+    .first<{ generated_document_key: string | null }>();
+
+  if (!row?.generated_document_key) {
+    return null;
+  }
+
+  const object = await getR2().get(row.generated_document_key);
+  if (!object) {
+    return null;
+  }
+
+  return {
+    bytes: await object.arrayBuffer(),
+    fileName: `contrato-${contractId}.pdf`,
+  };
 }
 
 /**

@@ -80,6 +80,8 @@ export type Contract = {
   signedUploadedAt: string | null;
   reviewedAt: string | null;
   reviewNote: string | null;
+  generatedDocumentKey: string | null;
+  generatedDocumentUpdatedAt: string | null;
 };
 
 export type Charge = {
@@ -202,6 +204,8 @@ export const contracts: Contract[] = [
     signedUploadedAt: null,
     reviewedAt: null,
     reviewNote: null,
+    generatedDocumentKey: null,
+    generatedDocumentUpdatedAt: null,
   },
   {
     id: "ctr-1002",
@@ -223,6 +227,8 @@ export const contracts: Contract[] = [
     signedUploadedAt: null,
     reviewedAt: null,
     reviewNote: null,
+    generatedDocumentKey: null,
+    generatedDocumentUpdatedAt: null,
   },
   {
     id: "ctr-1003",
@@ -244,6 +250,8 @@ export const contracts: Contract[] = [
     signedUploadedAt: null,
     reviewedAt: null,
     reviewNote: null,
+    generatedDocumentKey: null,
+    generatedDocumentUpdatedAt: null,
   },
 ];
 

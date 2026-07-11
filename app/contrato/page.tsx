@@ -3,10 +3,11 @@ import { getRentalData } from "../lib/rental-repository";
 import { requireUser } from "../lib/session";
 import { signatureStatusLabel } from "../lib/rentals";
 import { formatCurrency, formatDate } from "../lib/rentals";
+import { listInspectionPhotos } from "../lib/inspections";
 import { LogoutButton } from "../components/LogoutButton";
 import { ThemeToggle } from "../components/ThemeToggle";
-import { PrintButton } from "./PrintButton";
 import { SignedContractUpload } from "./SignedContractUpload";
+import { OccurrenceReporter } from "./OccurrenceReporter";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,7 @@ export default async function ContratoPage({
   const tenant = rentalData.tenants.find((item) => item.id === contract.tenantId);
   const property = rentalData.properties.find((item) => item.id === contract.propertyId);
   const receiver = rentalData.receivers.find((item) => item.id === contract.receiverId);
+  const inspectionPhotos = await listInspectionPhotos(contract.id);
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] px-4 py-5 text-[#0F172A] dark:bg-transparent dark:text-slate-100 sm:px-6 lg:px-8 print:bg-white print:px-0 print:py-0 print:text-black">
@@ -77,7 +79,16 @@ export default async function ContratoPage({
             >
               {signatureStatusLabel(contract.signatureStatus)}
             </span>
-            {contract.contractText ? <PrintButton /> : null}
+            {contract.generatedDocumentKey ? (
+              <a
+                className="btn-secondary"
+                href={`/api/contracts/document?contractId=${encodeURIComponent(contract.id)}`}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Baixar / abrir PDF
+              </a>
+            ) : null}
           </div>
           {contract.reviewNote ? (
             <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
@@ -109,6 +120,32 @@ export default async function ContratoPage({
           </section>
         )}
 
+        {inspectionPhotos.length > 0 ? (
+          <section className="surface-card mb-5 p-6 print:hidden">
+            <h2 className="font-semibold">Fotos da vistoria</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Estado do imovel registrado antes da assinatura. Estas fotos
+              tambem estao embutidas no PDF do contrato.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {inspectionPhotos.map((photo) => (
+                <div key={photo.id}>
+                  <img
+                    alt={photo.caption ?? photo.room ?? "Foto da vistoria"}
+                    className="aspect-square w-full rounded-md border border-slate-200 object-cover dark:border-white/10"
+                    src={`/api/contracts/inspection-photos?photoId=${encodeURIComponent(photo.id)}`}
+                  />
+                  {photo.room || photo.caption ? (
+                    <p className="mt-1 truncate text-xs text-slate-600 dark:text-slate-400">
+                      {[photo.room, photo.caption].filter(Boolean).join(" - ")}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {user.role === "tenant" && contract.contractText ? (
           <div className="print:hidden">
             <SignedContractUpload
@@ -116,6 +153,12 @@ export default async function ContratoPage({
               signatureStatus={contract.signatureStatus}
               signedFileName={contract.signedFileName}
             />
+          </div>
+        ) : null}
+
+        {user.role === "tenant" ? (
+          <div className="mt-5 print:hidden">
+            <OccurrenceReporter contractId={contract.id} />
           </div>
         ) : null}
       </div>
