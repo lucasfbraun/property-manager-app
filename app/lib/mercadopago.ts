@@ -321,6 +321,18 @@ function buildPayerIdentification(document: string): { type: string; number: str
   };
 }
 
+/**
+ * MP's date_of_expiration expects an explicit numeric UTC offset
+ * (e.g. "-03:00"); some accounts reject the "Z" suffix that
+ * Date.prototype.toISOString() produces with an opaque 500 internal_error.
+ * Shifts the instant by -3h before formatting so the local (Sao Paulo)
+ * wall-clock value stays correct, then labels it with the -03:00 offset.
+ */
+function toSaoPauloOffsetTimestamp(isoUtc: string): string {
+  const shifted = new Date(new Date(isoUtc).getTime() - 3 * 60 * 60 * 1000);
+  return `${shifted.toISOString().replace("Z", "")}-03:00`;
+}
+
 export async function createPixCharge(chargeId: string): Promise<{
   qrCode: string;
   qrCodeBase64: string;
@@ -368,7 +380,7 @@ export async function createPixCharge(chargeId: string): Promise<{
       payment_method_id: "pix",
       description: `Aluguel - cobranca ${chargeId}`,
       external_reference: chargeId,
-      date_of_expiration: expirationDate,
+      date_of_expiration: toSaoPauloOffsetTimestamp(expirationDate),
       payer: {
         email: row.tenant_email,
         first_name: firstName || row.tenant_name,
