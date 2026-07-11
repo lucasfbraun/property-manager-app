@@ -47,6 +47,9 @@ export function CadastroWorkspace({
   });
   const [message, setMessage] = useState("Pronto para cadastrar.");
   const [isSaving, setIsSaving] = useState(false);
+  const [mobileActionsForContractId, setMobileActionsForContractId] = useState<string | null>(
+    null,
+  );
   const [editing, setEditing] = useState<EditingTarget>(null);
 
   const totals = useMemo(
@@ -682,7 +685,8 @@ export function CadastroWorkspace({
                         )}
                       </td>
                       <td className="px-3 py-3 text-right">
-                        <div className="flex justify-end gap-2">
+                        {/* Tablet/desktop: inline buttons, wrapping to a second line if the row is narrow. */}
+                        <div className="hidden flex-wrap justify-end gap-2 sm:flex">
                           <button
                             className="rounded-md border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-500/10"
                             disabled={isSaving}
@@ -728,11 +732,82 @@ export function CadastroWorkspace({
                             Excluir
                           </button>
                         </div>
+
+                        {/* Mobile: compact "..." menu instead of 4 inline buttons. */}
+                        <div className="relative inline-block sm:hidden">
+                          <button
+                            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
+                            onClick={() =>
+                              setMobileActionsForContractId(
+                                mobileActionsForContractId === contract.id ? null : contract.id,
+                              )
+                            }
+                            type="button"
+                          >
+                            Acoes ...
+                          </button>
+                          {mobileActionsForContractId === contract.id ? (
+                            <div className="absolute right-0 z-10 mt-1 w-48 rounded-md border border-slate-200 bg-white p-1.5 text-left shadow-lg dark:border-white/10 dark:bg-[#0F172A]">
+                              <button
+                                className="block w-full rounded px-2 py-1.5 text-left text-xs font-semibold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-blue-300 dark:hover:bg-blue-500/10"
+                                disabled={isSaving}
+                                onClick={() => {
+                                  setMobileActionsForContractId(null);
+                                  generateCharge(contract.id);
+                                }}
+                                type="button"
+                              >
+                                Gerar cobranca
+                              </button>
+                              <button
+                                className="block w-full rounded px-2 py-1.5 text-left text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+                                disabled={isSaving}
+                                onClick={() => {
+                                  setMobileActionsForContractId(null);
+                                  syncPayment(contract.id);
+                                }}
+                                type="button"
+                              >
+                                Verificar pagamento
+                              </button>
+                              <button
+                                className="block w-full rounded px-2 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:bg-white/10"
+                                disabled={isSaving}
+                                onClick={() => {
+                                  setMobileActionsForContractId(null);
+                                  setEditing(
+                                    isEditingContract
+                                      ? null
+                                      : { id: contract.id, type: "contract" },
+                                  );
+                                }}
+                                type="button"
+                              >
+                                {isEditingContract ? "Fechar" : "Editar"}
+                              </button>
+                              <button
+                                className="block w-full rounded px-2 py-1.5 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                                disabled={isSaving}
+                                onClick={() => {
+                                  setMobileActionsForContractId(null);
+                                  deleteAndRefresh(
+                                    "/api/contracts",
+                                    contract.id,
+                                    `contrato de ${tenant?.name ?? "inquilino"}`,
+                                  );
+                                }}
+                                type="button"
+                              >
+                                Excluir
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                     {isEditingContract ? (
                       <tr key={`${contract.id}-edit`}>
-                        <td className="bg-slate-50 px-3 py-4 dark:bg-white/5" colSpan={7}>
+                        <td className="bg-slate-50 px-3 py-4 dark:bg-white/5" colSpan={8}>
                           <EditForm
                             action={(formData) => saveContract(contract.id, formData)}
                             layout="grid"
