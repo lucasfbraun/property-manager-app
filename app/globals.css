@@ -60,7 +60,10 @@ body {
   }
 
   .input-field {
-    @apply mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/20;
+    /* text-[16px] (not text-sm) on small screens: iOS Safari zooms the whole
+       page in on focus for any input under 16px, which feels like the form
+       froze. sm:text-sm restores the tighter desktop sizing. */
+    @apply mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[16px] text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/20 sm:text-sm;
   }
 }
 

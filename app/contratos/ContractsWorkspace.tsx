@@ -339,7 +339,11 @@ export function ContractsWorkspace({
 
       <section className="surface-card p-4">
         <h2 className="mb-3 font-semibold">Gerar contrato por inquilino</h2>
-        <div className="overflow-x-auto">
+
+        {/* Desktop/tablet: table. Below lg, a select + wrapped action buttons
+            per row is awkward to reach with horizontal scrolling, so mobile
+            gets a stacked card list instead (see below). */}
+        <div className="hidden overflow-x-auto lg:block">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-white/5 dark:text-slate-400">
               <tr>
@@ -431,6 +435,99 @@ export function ContractsWorkspace({
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile/tablet: stacked cards, everything reachable without horizontal scroll. */}
+        <div className="space-y-3 lg:hidden">
+          {contracts.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Nenhum contrato cadastrado.
+            </p>
+          ) : (
+            contracts.map((contract) => (
+              <div
+                className="rounded-md border border-slate-200 bg-[#F8FAFC] p-3 dark:border-white/10 dark:bg-white/5"
+                key={contract.id}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{contract.tenantName}</p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {contract.propertyName}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${statusTone[contract.signatureStatus]}`}
+                  >
+                    {signatureStatusLabel(contract.signatureStatus)}
+                  </span>
+                </div>
+
+                <label className="mt-3 block text-sm">
+                  <span className="font-medium text-slate-700 dark:text-slate-300">
+                    Modelo
+                  </span>
+                  <select
+                    className="input-field"
+                    defaultValue={contract.templateId ?? ""}
+                    onChange={(event) =>
+                      setSelectedTemplateByContract((prev) => ({
+                        ...prev,
+                        [contract.id]: event.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">Selecione um modelo</option>
+                    {templates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200 pt-3 dark:border-white/10">
+                  <button
+                    className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
+                    onClick={() =>
+                      setExpandedInspectionContractId((current) =>
+                        current === contract.id ? null : contract.id,
+                      )
+                    }
+                    type="button"
+                  >
+                    {expandedInspectionContractId === contract.id
+                      ? "Fechar vistoria"
+                      : "Vistoria (fotos)"}
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    disabled={isSaving}
+                    onClick={() => generateDocument(contract.id)}
+                    type="button"
+                  >
+                    {contract.templateId ? "Atualizar contrato" : "Gerar contrato"}
+                  </button>
+                  {contract.templateId ? (
+                    <a
+                      className="btn-primary"
+                      href={`/api/contracts/document?contractId=${encodeURIComponent(contract.id)}`}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      Ver PDF
+                    </a>
+                  ) : null}
+                </div>
+
+                {expandedInspectionContractId === contract.id ? (
+                  <div className="mt-3 border-t border-slate-200 pt-3 dark:border-white/10">
+                    <InspectionPhotosManager contractId={contract.id} />
+                  </div>
+                ) : null}
+              </div>
+            ))
+          )}
         </div>
       </section>
 
