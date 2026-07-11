@@ -677,6 +677,9 @@ export function CadastroWorkspace({
                             }
                           >
                             {latestCharge.reference}: {latestCharge.status}
+                            {latestCharge.waterAmount
+                              ? ` (+agua ${formatCurrency(latestCharge.waterAmount)})`
+                              : ""}
                           </span>
                         ) : (
                           <span className="text-xs text-slate-400 dark:text-slate-600">

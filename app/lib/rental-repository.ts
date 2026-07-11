@@ -7,6 +7,7 @@ import {
 } from "./auth-repository";
 import { ensureContractDocumentTables } from "./contract-documents";
 import { ensureInspectionTables } from "./inspections";
+import { ensureWaterBillTables } from "./water-bills";
 import {
   charges,
   contracts,
@@ -84,6 +85,7 @@ type ChargeRow = {
   pix_qr_code: string | null;
   pix_qr_code_base64: string | null;
   pix_expires_at: string | null;
+  water_amount: number | null;
 };
 
 let initialized = false;
@@ -481,9 +483,12 @@ export async function ensureRentalDatabase(d1: D1Binding = getD1()) {
   await ensureColumn(d1, "charges", "pix_qr_code", "pix_qr_code text");
   await ensureColumn(d1, "charges", "pix_qr_code_base64", "pix_qr_code_base64 text");
   await ensureColumn(d1, "charges", "pix_expires_at", "pix_expires_at text");
+  // Portion of a charge that came from a water bill rateio (app/lib/water-bills.ts).
+  await ensureColumn(d1, "charges", "water_amount", "water_amount real");
 
   await ensureContractDocumentTables(d1);
   await ensureInspectionTables(d1);
+  await ensureWaterBillTables(d1);
 
   await seedIfEmpty(d1);
   await seedAuthUsers(d1);
@@ -815,6 +820,7 @@ function mapCharge(row: ChargeRow): Charge {
         : row.status === "overdue"
           ? "Vencida"
           : "Aberta",
+    waterAmount: row.water_amount ?? null,
   };
 }
 

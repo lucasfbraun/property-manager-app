@@ -100,6 +100,8 @@ export type Charge = {
   pixQrCode: string | null;
   pixQrCodeBase64: string | null;
   pixExpiresAt: string | null;
+  /** Portion of `amount` that comes from a water bill rateio (rest is rent). Null when none was applied. */
+  waterAmount: number | null;
 };
 
 export type PaymentProjection = Charge & {
@@ -276,6 +278,7 @@ export const charges: Charge[] = [
     pixQrCode: null,
     pixQrCodeBase64: null,
     pixExpiresAt: null,
+    waterAmount: null,
   },
   {
     id: "chg-2026-06-1002",
@@ -287,6 +290,7 @@ export const charges: Charge[] = [
     pixQrCode: null,
     pixQrCodeBase64: null,
     pixExpiresAt: null,
+    waterAmount: null,
   },
   {
     id: "chg-2026-07-1003",
@@ -298,6 +302,7 @@ export const charges: Charge[] = [
     pixQrCode: null,
     pixQrCodeBase64: null,
     pixExpiresAt: null,
+    waterAmount: null,
   },
 ];
 

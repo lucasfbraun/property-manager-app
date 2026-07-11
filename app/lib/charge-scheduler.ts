@@ -1,8 +1,10 @@
 import { getD1 } from "../../db";
 import { ensureRentalDatabase } from "./rental-repository";
+import { applyPendingWaterAllocations } from "./water-bills";
 
 type ActiveContractRow = {
   id: string;
+  property_id: string;
   receiver_id: string;
   monthly_rent: number;
   due_day: number;
@@ -62,7 +64,7 @@ function resolveBillingCycleDueDate(
   return { daysUntilDue: diffDays, dueDateIso: candidateIso };
 }
 
-function formatReference(dueDateIso: string): string {
+export function formatReference(dueDateIso: string): string {
   const date = new Date(`${dueDateIso}T12:00:00-03:00`);
   const formatted = new Intl.DateTimeFormat("pt-BR", {
     month: "long",
@@ -120,7 +122,7 @@ export async function generateChargeForContract(contractId: string): Promise<{
   const d1 = getD1();
   const contract = await d1
     .prepare(
-      "SELECT id, receiver_id, monthly_rent, due_day, status FROM contracts WHERE id = ?",
+      "SELECT id, property_id, receiver_id, monthly_rent, due_day, status FROM contracts WHERE id = ?",
     )
     .bind(contractId)
     .first<ActiveContractRow>();
@@ -145,6 +147,10 @@ export async function generateChargeForContract(contractId: string): Promise<{
     reference,
   });
 
+  // Folds in any water bill rateio share that was recorded for this
+  // property/month before the charge existed (see app/lib/water-bills.ts).
+  await applyPendingWaterAllocations(contract.property_id, reference, chargeId);
+
   return { chargeId, created: true, reference };
 }
 
@@ -158,7 +164,7 @@ export async function runMonthlyChargeSweep(): Promise<{ created: number; skippe
   const d1 = getD1();
   const contracts = await d1
     .prepare(
-      "SELECT id, receiver_id, monthly_rent, due_day, status FROM contracts WHERE status IN ('active', 'expiring')",
+      "SELECT id, property_id, receiver_id, monthly_rent, due_day, status FROM contracts WHERE status IN ('active', 'expiring')",
     )
     .all<ActiveContractRow>();
 
@@ -179,13 +185,14 @@ export async function runMonthlyChargeSweep(): Promise<{ created: number; skippe
       continue;
     }
 
-    await insertCharge({
+    const chargeId = await insertCharge({
       amount: contract.monthly_rent,
       contractId: contract.id,
       dueDateIso,
       receiverId: contract.receiver_id,
       reference,
     });
+    await applyPendingWaterAllocations(contract.property_id, reference, chargeId);
     created += 1;
   }
 

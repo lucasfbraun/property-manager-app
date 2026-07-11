@@ -116,6 +116,11 @@ export default async function TenantPortal() {
                         <p className="mt-1 text-sm text-neutral-600 dark:text-slate-400">
                           Vencimento em {formatDate(charge.dueDate)}
                         </p>
+                        {charge.waterAmount ? (
+                          <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
+                            Inclui {formatCurrency(charge.waterAmount)} de rateio de agua
+                          </p>
+                        ) : null}
                         {charge.daysLate > 0 ? (
                           <p className="mt-2 text-sm text-rose-700 dark:text-rose-400">
                             {charge.daysLate} dias em atraso, com multa e juros
