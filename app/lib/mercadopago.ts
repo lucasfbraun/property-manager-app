@@ -22,6 +22,10 @@ function getConfig() {
   const clientId = config.MP_CLIENT_ID as string | undefined;
   const clientSecret = config.MP_CLIENT_SECRET as string | undefined;
   const webhookSecret = config.MP_WEBHOOK_SECRET as string | undefined;
+  // Optional: only set to "true" in Cloudflare while connecting MP sandbox
+  // test-user accounts. Leave unset/false for real receivers so the OAuth
+  // exchange returns a real (APP_USR) access token.
+  const sandboxConnect = config.MP_SANDBOX_CONNECT === "true";
 
   if (!clientId || !clientSecret) {
     throw new Error(
@@ -29,7 +33,7 @@ function getConfig() {
     );
   }
 
-  return { clientId, clientSecret, webhookSecret };
+  return { clientId, clientSecret, sandboxConnect, webhookSecret };
 }
 
 /** Builds the redirect_uri that must match exactly what is registered in the Mercado Pago app. */
@@ -124,17 +128,18 @@ export async function exchangeCodeForTokens(
   code: string,
   origin: string,
 ): Promise<MpTokenResponse> {
-  const { clientId, clientSecret } = getConfig();
+  const { clientId, clientSecret, sandboxConnect } = getConfig();
   return requestToken({
     client_id: clientId,
     client_secret: clientSecret,
     grant_type: "authorization_code",
     code,
     redirect_uri: buildRedirectUri(origin),
-    // Sandbox only: per MP docs, this makes the token exchange return a TEST
-    // access token instead of failing/returning a live one. Remove this line
-    // (or gate it behind an env flag) before connecting real production sellers.
-    test_token: true,
+    // Sandbox-only flag: per MP docs, this forces the exchange to return a
+    // TEST access token instead of a live one. Off by default so real
+    // receivers get a real (APP_USR) token; flip MP_SANDBOX_CONNECT=true in
+    // Cloudflare only while testing with sandbox test-user accounts.
+    ...(sandboxConnect ? { test_token: true } : {}),
   });
 }
 
