@@ -7,13 +7,12 @@ import { ThemeToggle } from "../components/ThemeToggle";
 export const dynamic = "force-dynamic";
 
 const flowSteps = [
-  "Monolito identifica evento de cobranca",
-  "Monolito envia payload para Webhook n8n",
-  "n8n valida segredo do evento",
-  "n8n monta texto e chatId",
-  "n8n chama WAHA /api/sendText",
-  "WAHA envia mensagem no WhatsApp",
-  "n8n registra sucesso ou falha",
+  "Cron Trigger da Cloudflare roda diariamente (mesmo mecanismo da cobranca mensal)",
+  "Monolito identifica o evento de cobranca (antes/no/apos vencimento, pagamento confirmado)",
+  "Monolito monta o texto da mensagem e o chatId",
+  "Monolito chama o WAHA diretamente em POST /api/sendText",
+  "WAHA envia a mensagem no WhatsApp",
+  "Monolito registra sucesso ou falha do envio",
 ];
 
 const reminderEvents = [
@@ -39,7 +38,8 @@ export default async function IntegracoesPage() {
               Integracoes
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-              Configuracao planejada para WhatsApp usando n8n e WAHA.
+              Configuracao planejada para WhatsApp: Cron Trigger da Cloudflare
+              chamando o WAHA diretamente, sem orquestrador no meio.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -54,17 +54,18 @@ export default async function IntegracoesPage() {
         <section className="grid gap-5 lg:grid-cols-[1fr_360px]">
           <div className="space-y-5">
             <section className="surface-card p-4">
-              <h2 className="font-semibold">WhatsApp: n8n + WAHA</h2>
+              <h2 className="font-semibold">WhatsApp: Cron Trigger + WAHA</h2>
               <p className="mt-2 text-sm leading-6 text-neutral-600 dark:text-slate-400">
-                A aplicacao monolitica decide quando enviar o lembrete. O n8n
-                orquestra a automacao e chama o WAHA para entregar a mensagem no
-                WhatsApp.
+                A propria aplicacao decide quando enviar o lembrete, disparada
+                por um Cron Trigger da Cloudflare (o mesmo mecanismo que ja
+                gera a cobranca mensal), e chama o WAHA diretamente para
+                entregar a mensagem no WhatsApp — sem orquestrador no meio.
               </p>
 
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <InfoCard
-                  label="Orquestrador"
-                  value={whatsappAutomationConfig.orchestrator}
+                  label="Gatilho"
+                  value="Cloudflare Cron Trigger"
                 />
                 <InfoCard
                   label="Gateway WhatsApp"
@@ -130,16 +131,6 @@ export default async function IntegracoesPage() {
               <h2 className="font-semibold">Variaveis do monolito</h2>
               <EnvList
                 items={[
-                  whatsappAutomationConfig.n8nWebhookEnv,
-                  whatsappAutomationConfig.n8nWebhookSecretEnv,
-                ]}
-              />
-            </section>
-
-            <section className="surface-card p-4">
-              <h2 className="font-semibold">Variaveis no n8n</h2>
-              <EnvList
-                items={[
                   whatsappAutomationConfig.wahaBaseUrlEnv,
                   whatsappAutomationConfig.wahaApiKeyEnv,
                   whatsappAutomationConfig.wahaSessionEnv,
@@ -150,10 +141,10 @@ export default async function IntegracoesPage() {
             <section className="surface-card p-4">
               <h2 className="font-semibold">Seguranca</h2>
               <ul className="mt-3 space-y-2 text-sm text-neutral-700 dark:text-slate-300">
-                <li>Webhook do n8n deve validar segredo.</li>
-                <li>Token do WAHA fica apenas no n8n.</li>
+                <li>Token do WAHA fica apenas no Worker, nunca exposto ao navegador.</li>
                 <li>Envios devem ser idempotentes por cobranca e evento.</li>
                 <li>Mensagens reais dependem de HTTPS em producao.</li>
+                <li>Sem orquestrador externo: menos um ponto de falha e de segredo para gerenciar.</li>
               </ul>
             </section>
           </aside>

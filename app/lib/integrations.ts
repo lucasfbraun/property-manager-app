@@ -44,23 +44,20 @@ export type WhatsAppReminder = {
   receiverName?: string;
 };
 
-export type N8nWhatsAppWebhookPayload = WhatsAppReminder & {
-  source: "rentals-monolith";
-  provider: "waha";
-  requestedAt: string;
-};
-
 export type WahaTextMessagePayload = {
   session: string;
   chatId: string;
   text: string;
 };
 
+/**
+ * Direct integration: a Cloudflare Cron Trigger (same mechanism as the
+ * monthly charge sweep, see app/lib/charge-scheduler.ts) calls WAHA's HTTP
+ * API straight from the Worker. No orchestrator (n8n) in between.
+ */
 export const whatsappAutomationConfig = {
   provider: "WAHA",
-  orchestrator: "n8n",
-  n8nWebhookEnv: "N8N_WHATSAPP_WEBHOOK_URL",
-  n8nWebhookSecretEnv: "N8N_WHATSAPP_WEBHOOK_SECRET",
+  trigger: "cloudflare-cron",
   wahaBaseUrlEnv: "WAHA_BASE_URL",
   wahaApiKeyEnv: "WAHA_API_KEY",
   wahaSessionEnv: "WAHA_SESSION",
@@ -71,17 +68,6 @@ export const whatsappAutomationConfig = {
 export function normalizeBrazilianPhoneToWahaChatId(phone: string) {
   const digits = phone.replace(/\D/g, "");
   return `${digits}@c.us`;
-}
-
-export function buildN8nWhatsAppPayload(
-  reminder: WhatsAppReminder,
-): N8nWhatsAppWebhookPayload {
-  return {
-    ...reminder,
-    provider: "waha",
-    requestedAt: new Date().toISOString(),
-    source: "rentals-monolith",
-  };
 }
 
 export function buildWahaTextPayload({
@@ -117,11 +103,16 @@ export function buildReminderText(message: WhatsAppReminder) {
   return `Ola, ${message.tenantName}. Lembrete do aluguel com vencimento em ${message.dueDate}, valor ${formattedAmount}. Link para pagamento: ${message.paymentUrl}`;
 }
 
+/**
+ * Sends a WhatsApp reminder straight to WAHA. Called from the Cron Trigger
+ * sweep (see docs/INTEGRACAO_WHATSAPP_WAHA.md), not yet wired up: pending the
+ * sweep function itself and the WAHA_* secrets in Cloudflare.
+ */
 export async function sendPaymentReminder(
   message: WhatsAppReminder,
 ): Promise<void> {
   void message;
   throw new Error(
-    "Integracao WhatsApp pendente: configurar n8n + WAHA antes de enviar mensagens reais.",
+    "Integracao WhatsApp pendente: configurar WAHA_BASE_URL/WAHA_API_KEY e implementar o disparo via Cron Trigger.",
   );
 }

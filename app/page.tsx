@@ -52,7 +52,7 @@ export default async function Home() {
           <div className="mt-6 rounded-lg border border-blue-400/30 bg-blue-500/10 p-4">
             <p className="text-sm font-semibold text-blue-100">WhatsApp</p>
             <p className="mt-2 text-sm leading-6 text-slate-300">
-              WAHA + n8n definidos para a regua de cobranca.
+              WAHA via Cron Trigger definido para a regua de cobranca.
             </p>
           </div>
         </aside>
@@ -229,15 +229,15 @@ export default async function Home() {
               <Panel title="Proximas decisoes">
                 <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                   <li>Definir modelo Mercado Pago por recebedor.</li>
-                  <li>Configurar credenciais WAHA e n8n.</li>
+                  <li>Configurar credenciais WAHA.</li>
                   <li>Validar regra padrao de multa e juros.</li>
                 </ul>
               </Panel>
 
               <Panel title="WhatsApp">
                 <p className="text-sm leading-6 text-slate-700 dark:text-slate-300">
-                  Decisao registrada: usar n8n como orquestrador e WAHA como
-                  gateway de envio das mensagens.
+                  Decisao registrada: Cron Trigger da Cloudflare chama o WAHA
+                  diretamente para envio das mensagens, sem orquestrador no meio.
                 </p>
                 <Link className="btn-secondary mt-3 inline-flex" href="/integracoes">
                   Ver integracao

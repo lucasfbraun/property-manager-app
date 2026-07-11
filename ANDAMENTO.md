@@ -66,7 +66,7 @@ O armazenamento do PDF assinado foi migrado de blob no D1 para o **Cloudflare R2
 
 ## 7. O que ainda falta / gaps conhecidos
 
-- Lembretes automaticos via WhatsApp (n8n/WAHA): ainda nao implementado, so planejado.
+- Lembretes automaticos via WhatsApp (Cron Trigger da Cloudflare chamando o WAHA diretamente, sem n8n — decisao simplificada em 11/07/2026, ver `docs/INTEGRACAO_WHATSAPP_WAHA.md`): ainda nao implementado, so planejado. Regua ja definida: aviso 5 dias antes do vencimento, aviso no dia do vencimento e, em caso de atraso, repeticao a cada 3 dias ate a cobranca ser paga ou cancelada.
 - Autoatendimento de troca de senha pelo proprio usuario: nao existe.
 - Tela para editar ou cancelar uma cobranca ja gerada: nao existe (hoje so ha geracao).
 - Teste de ponta a ponta ao vivo da aplicacao publicada: pendente.
