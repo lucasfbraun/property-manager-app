@@ -525,8 +525,8 @@ async function setOrCreateLinkedUser(
 
   if (row?.user_id) {
     await d1
-      .prepare("UPDATE users SET password_hash = ? WHERE id = ?")
-      .bind(passwordHash, row.user_id)
+      .prepare("UPDATE users SET password_hash = ?, email = ?, name = ? WHERE id = ?")
+      .bind(passwordHash, email, name, row.user_id)
       .run();
     return;
   }

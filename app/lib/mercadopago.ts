@@ -131,6 +131,10 @@ export async function exchangeCodeForTokens(
     grant_type: "authorization_code",
     code,
     redirect_uri: buildRedirectUri(origin),
+    // Sandbox only: per MP docs, this makes the token exchange return a TEST
+    // access token instead of failing/returning a live one. Remove this line
+    // (or gate it behind an env flag) before connecting real production sellers.
+    test_token: true,
   });
 }
 
