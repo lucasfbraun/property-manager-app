@@ -285,6 +285,7 @@ type PixChargeRow = {
   monthly_interest_rate: number;
   tenant_email: string;
   tenant_name: string;
+  tenant_document: string;
 };
 
 /**
@@ -307,6 +308,19 @@ function computeCurrentAmountDue(row: PixChargeRow): number {
   return row.original_amount + fine + interest;
 }
 
+/**
+ * MP's Payments API requires payer.identification (CPF/CNPJ) to validate the
+ * payer; without it, the API can reject the payment with a generic
+ * "Invalid users involved" error instead of a clear validation message.
+ */
+function buildPayerIdentification(document: string): { type: string; number: string } {
+  const digits = document.replace(/\D/g, "");
+  return {
+    number: digits,
+    type: digits.length > 11 ? "CNPJ" : "CPF",
+  };
+}
+
 export async function createPixCharge(chargeId: string): Promise<{
   qrCode: string;
   qrCodeBase64: string;
@@ -320,7 +334,7 @@ export async function createPixCharge(chargeId: string): Promise<{
               c.status as status, c.contract_id as contract_id, c.receiver_id as receiver_id,
               ct.grace_days as grace_days, ct.fine_rate as fine_rate,
               ct.monthly_interest_rate as monthly_interest_rate,
-              t.email as tenant_email, t.name as tenant_name
+              t.email as tenant_email, t.name as tenant_name, t.document as tenant_document
        FROM charges c
        JOIN contracts ct ON ct.id = c.contract_id
        JOIN tenants t ON t.id = ct.tenant_id
@@ -359,6 +373,7 @@ export async function createPixCharge(chargeId: string): Promise<{
         email: row.tenant_email,
         first_name: firstName || row.tenant_name,
         last_name: rest.join(" ") || "-",
+        identification: buildPayerIdentification(row.tenant_document),
       },
     }),
   });
