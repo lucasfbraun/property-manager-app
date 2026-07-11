@@ -71,7 +71,7 @@ O armazenamento do PDF assinado foi migrado de blob no D1 para o **Cloudflare R2
 
 - Lembretes automaticos via WhatsApp (Cron Trigger da Cloudflare chamando o WAHA diretamente, sem n8n — decisao simplificada em 11/07/2026, ver `docs/INTEGRACAO_WHATSAPP_WAHA.md`): ainda nao implementado, so planejado. Regua ja definida: aviso 5 dias antes do vencimento, aviso no dia do vencimento e, em caso de atraso, repeticao a cada 3 dias ate a cobranca ser paga ou cancelada.
 - Autoatendimento de troca de senha pelo proprio usuario: nao existe.
-- Tela para editar ou cancelar uma cobranca ja gerada: nao existe (hoje so ha geracao). O valor de um rateio de agua ja aplicado a uma cobranca tambem nao pode ser removido pela UI hoje.
+- Tela para editar ou cancelar uma cobranca ja gerada: nao existe (hoje so ha geracao). O valor de um rateio ja aplicado a uma cobranca tambem nao pode ser removido pela UI hoje.
 - Webhook de producao do Mercado Pago: precisa ser configurado no painel do Mercado Pago (hoje so o "Modo teste" esta configurado); ate la, o fluxo depende do botao manual "Verificar pagamento".
 - Apenas uma transacao Pix real (R$ 1,00) foi validada — ver risco na secao 5.
 - Confirmacao visual da responsividade mobile via navegador (Chrome): revisao de codigo feita e ajustes aplicados (tabela de contratos, fotos de vistoria), mas a verificacao visual ao vivo ainda depende da extensao Chrome estar conectada.
@@ -87,16 +87,18 @@ O armazenamento do PDF assinado foi migrado de blob no D1 para o **Cloudflare R2
   - Coluna de acoes da tabela de contratos (`/cadastros`) foi reformulada: em telas `sm:` para cima continua como botoes inline; em mobile vira um menu suspenso "Acoes ...", evitando quebra de layout.
 - Verificacao visual ao vivo (via extensao Chrome) ainda pendente — ver secao 7.
 
-## 9. Rateio de agua entre imoveis (opcional)
+## 9. Rateios entre imoveis (despesas compartilhadas, opcional)
 
-Feature nova (11/07/2026), pensada para o cenario de multiplos imoveis de um mesmo proprietario/condominio compartilhando uma fatura de agua:
+Feature nova (11/07/2026, generalizada no mesmo dia), pensada para o cenario de multiplos imoveis de um mesmo proprietario/condominio compartilhando uma despesa (agua, condominio, gas, internet, IPTU ou qualquer outra — nao ficou restrito a agua):
 
-1. Tela `/rateio-agua` (admin): escolhe o mes de referencia, informa o valor total da fatura de agua, seleciona quais imoveis participam do rateio e, opcionalmente, anexa a fatura (JPG/PNG/PDF, ate 8MB, guardada no **R2**).
-2. O valor total e **dividido igualmente** entre os imoveis selecionados (`app/lib/water-bills.ts`).
-3. Se a cobranca do mes daquele imovel **ja existir**, a parcela de agua e somada na hora ao valor da cobranca (`charges.original_amount`, com o valor da parcela tambem guardado separadamente em `charges.water_amount` para transparencia).
+1. Tela `/rateios` (admin): escolhe a **categoria da despesa** (lista sugerida + "Outro" com descricao livre), o mes de referencia, o valor total, quais imoveis participam do rateio e, opcionalmente, anexa o comprovante (JPG/PNG/PDF, ate 8MB, guardado no **R2**).
+2. O valor total e dividido entre os imoveis selecionados — **igualmente** ou **proporcional ao numero de moradores** de cada imovel (o admin escolhe o modo; ve uma pre-visualizacao do valor por imovel antes de confirmar). Numero de moradores vem de um campo novo no cadastro do inquilino ("Quantidade de moradores").
+3. Se a cobranca do mes daquele imovel **ja existir**, a parcela e somada na hora ao valor da cobranca (`charges.original_amount`, com o valor tambem guardado separadamente em `charges.rateio_amount` para transparencia).
 4. Se a cobranca **ainda nao existir**, o rateio fica pendente e e aplicado automaticamente quando a cobranca do mes for gerada (manual ou via cron) — integrado em `app/lib/charge-scheduler.ts`.
-5. O inquilino ve, no portal, quando a cobranca em aberto inclui uma parcela de rateio de agua.
-6. Historico de rateios (com detalhamento por imovel e link para a fatura anexada) fica listado na propria tela `/rateio-agua`.
+5. O inquilino ve, no portal, quando a cobranca em aberto inclui uma parcela de rateio.
+6. Historico de rateios (com categoria, descricao, detalhamento por imovel e link para o comprovante anexado) fica listado na propria tela `/rateios`.
+
+Implementacao em `app/lib/rateios.ts` (tabelas `rateios` e `rateio_allocations`); rota `app/api/rateios`.
 
 ## 10. Configuracao e segredos necessarios
 
@@ -132,5 +134,7 @@ Toda a implementacao inicial do projeto foi entregue em um unico dia (05/07/2026
 | 11/07/2026 | — | Diagnostico e resolucao da instabilidade do sandbox Mercado Pago; validacao com pagamento Pix real de R$ 1,00 |
 | 11/07/2026 | — | Botao "Verificar pagamento" (fallback manual ao webhook) + recibo de pagamento em PDF no portal do inquilino |
 | 11/07/2026 | — | Ajustes de responsividade mobile (tabela de contratos, fotos de vistoria) |
-| 11/07/2026 | — | Rateio de agua entre imoveis (`/rateio-agua`) |
+| 11/07/2026 | — | Rateio de agua entre imoveis (`/rateio-agua`), depois generalizado para rateios de qualquer despesa compartilhada (`/rateios`) |
 | 11/07/2026 | — | Revisao e atualizacao do cronograma e da documentacao de andamento |
+| 11/07/2026 | — | Correcao do menu lateral inacessivel no celular + revisao de responsividade mobile em todo o app |
+| 11/07/2026 | — | Quantidade de moradores no cadastro do inquilino + rateio proporcional a moradores |

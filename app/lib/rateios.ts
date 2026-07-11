@@ -2,18 +2,25 @@ import { getD1, getR2, type D1Binding } from "../../db";
 import { ensureColumn } from "./auth-repository";
 
 /**
- * Water bill rateio (apportionment): the admin enters the total water bill
- * for a given month, picks which properties share it (not necessarily all of
- * them — e.g. a property with its own separate hydrometer would be left
- * out), optionally attaches the invoice file, and the amount is split evenly
- * across the selected properties. Each property's share is added on top of
- * that month's rent charge for the contract tied to it.
+ * Rateio (apportionment): the admin enters the total amount of a shared bill
+ * for a given month — water, condominio, gas, internet, or anything else
+ * (see RATEIO_CATEGORIES) — picks which properties share it (not necessarily
+ * all of them, e.g. a property with its own separate hydrometer would be left
+ * out), optionally attaches the invoice/receipt file, and the amount is split
+ * across the selected properties (evenly, or weighted by each property's
+ * number of residents). Each property's share is added on top of that
+ * month's rent charge for the contract tied to it.
+ *
+ * This was originally water-bill-only ("water_bills" table); generalized so
+ * a single mechanism covers any recurring shared expense. Renamed cleanly
+ * (no migration/back-compat needed) since the feature had not yet reached a
+ * working production deploy under the old name.
  *
  * Ordering isn't assumed: the charge for a given contract/month may already
  * exist (rateio entered after the automatic charge sweep already ran) or not
  * yet (rateio entered ahead of time). Allocations that can't be applied
  * immediately are left pending (`applied_at` null) and picked up later by
- * `applyPendingWaterAllocations`, called right after a new charge is
+ * `applyPendingRateioAllocations`, called right after a new charge is
  * inserted (see app/lib/charge-scheduler.ts).
  */
 
@@ -26,7 +33,22 @@ export type AcceptedInvoiceContentType = (typeof ACCEPTED_INVOICE_CONTENT_TYPES)
 
 export const MAX_INVOICE_BYTES = 8 * 1024 * 1024; // 8MB
 
-export type WaterBillAllocation = {
+/** Suggested categories shown in the UI. "outro" covers anything not listed — describe it in `description`. */
+export const RATEIO_CATEGORIES = [
+  { label: "Agua", value: "agua" },
+  { label: "Condominio", value: "condominio" },
+  { label: "Gas", value: "gas" },
+  { label: "Internet/TV", value: "internet" },
+  { label: "IPTU", value: "iptu" },
+  { label: "Outro", value: "outro" },
+] as const;
+export type RateioCategory = (typeof RATEIO_CATEGORIES)[number]["value"];
+
+export function rateioCategoryLabel(category: string): string {
+  return RATEIO_CATEGORIES.find((item) => item.value === category)?.label ?? category;
+}
+
+export type RateioAllocation = {
   id: string;
   propertyId: string;
   propertyName: string;
@@ -35,16 +57,18 @@ export type WaterBillAllocation = {
   chargeId: string | null;
 };
 
-export type WaterBill = {
+export type Rateio = {
   id: string;
+  category: string;
+  description: string | null;
   reference: string;
   totalAmount: number;
   invoiceFileName: string | null;
   createdAt: string;
-  allocations: WaterBillAllocation[];
+  allocations: RateioAllocation[];
 };
 
-export type WaterBillSplitMode = "equal" | "residents";
+export type RateioSplitMode = "equal" | "residents";
 
 export type PropertyResidentInfo = {
   propertyId: string;
@@ -127,11 +151,13 @@ function splitByWeights(
   return shares;
 }
 
-export async function ensureWaterBillTables(d1: D1Binding = getD1()) {
+export async function ensureRateioTables(d1: D1Binding = getD1()) {
   await d1
     .prepare(
-      `CREATE TABLE IF NOT EXISTS water_bills (
+      `CREATE TABLE IF NOT EXISTS rateios (
         id text PRIMARY KEY NOT NULL,
+        category text NOT NULL DEFAULT 'outro',
+        description text,
         reference text NOT NULL,
         total_amount real NOT NULL,
         invoice_key text,
@@ -144,9 +170,9 @@ export async function ensureWaterBillTables(d1: D1Binding = getD1()) {
 
   await d1
     .prepare(
-      `CREATE TABLE IF NOT EXISTS water_bill_allocations (
+      `CREATE TABLE IF NOT EXISTS rateio_allocations (
         id text PRIMARY KEY NOT NULL,
-        water_bill_id text NOT NULL REFERENCES water_bills(id),
+        rateio_id text NOT NULL REFERENCES rateios(id),
         property_id text NOT NULL REFERENCES properties(id),
         amount real NOT NULL,
         charge_id text,
@@ -155,9 +181,9 @@ export async function ensureWaterBillTables(d1: D1Binding = getD1()) {
     )
     .run();
 
-  // Additive: lets a charge show "aluguel + agua" separately even though
-  // `original_amount` already includes the water share (see mercadopago.ts).
-  await ensureColumn(d1, "charges", "water_amount", "water_amount real");
+  // Additive: lets a charge show "aluguel + rateio" separately even though
+  // `original_amount` already includes the rateio share (see mercadopago.ts).
+  await ensureColumn(d1, "charges", "rateio_amount", "rateio_amount real");
 }
 
 function createId(prefix: string) {
@@ -170,7 +196,7 @@ function sanitizeFileName(name: string): string {
 
 function assertAcceptedInvoiceType(contentType: string) {
   if (!ACCEPTED_INVOICE_CONTENT_TYPES.includes(contentType as AcceptedInvoiceContentType)) {
-    throw new Error("Formato nao suportado. Envie a fatura em JPG, PNG ou PDF.");
+    throw new Error("Formato nao suportado. Envie o comprovante em JPG, PNG ou PDF.");
   }
 }
 
@@ -197,32 +223,38 @@ function roundCents(value: number): number {
 }
 
 /**
- * Creates a water bill rateio: splits `totalAmount` across `propertyIds` —
- * evenly, or weighted by each property's number of residents (see
- * `splitMode`) — and applies each share to that property's contract charge
- * for `reference` (immediately if the charge already exists; otherwise the
- * share is left pending for `applyPendingWaterAllocations` to pick up once
- * the charge is generated).
+ * Creates a rateio: splits `totalAmount` across `propertyIds` — evenly, or
+ * weighted by each property's number of residents (see `splitMode`) — and
+ * applies each share to that property's contract charge for `reference`
+ * (immediately if the charge already exists; otherwise the share is left
+ * pending for `applyPendingRateioAllocations` to pick up once the charge is
+ * generated).
  */
-export async function createWaterBillRateio(input: {
+export async function createRateio(input: {
+  category: string;
+  description?: string;
   reference: string;
   totalAmount: number;
   propertyIds: string[];
   /** "equal" (default) splits the total evenly; "residents" weights each property's share by its tenant's resident count (properties with no count informed count as 1 resident). */
-  splitMode?: WaterBillSplitMode;
+  splitMode?: RateioSplitMode;
   invoiceBase64?: string;
   invoiceContentType?: string;
   invoiceFileName?: string;
 }): Promise<{
-  waterBillId: string;
+  rateioId: string;
   perPropertyAmount: number;
   appliedCount: number;
   pendingCount: number;
   amountsByProperty: Record<string, number>;
 }> {
   const d1 = getD1();
-  await ensureWaterBillTables(d1);
+  await ensureRateioTables(d1);
 
+  const category = input.category.trim();
+  if (!category) {
+    throw new Error("Informe a categoria do rateio.");
+  }
   const reference = input.reference.trim();
   if (!reference) {
     throw new Error("Informe o mes/ano de referencia.");
@@ -232,21 +264,21 @@ export async function createWaterBillRateio(input: {
     throw new Error("Selecione ao menos um imovel para o rateio.");
   }
   if (!Number.isFinite(input.totalAmount) || input.totalAmount <= 0) {
-    throw new Error("Informe um valor total valido para a fatura de agua.");
+    throw new Error("Informe um valor total valido para o rateio.");
   }
 
   let invoiceKey: string | null = null;
-  const waterBillId = createId("water");
+  const rateioId = createId("rateio");
 
   if (input.invoiceBase64) {
     if (!input.invoiceContentType || !input.invoiceFileName) {
-      throw new Error("Dados do arquivo da fatura incompletos.");
+      throw new Error("Dados do arquivo do comprovante incompletos.");
     }
     assertAcceptedInvoiceType(input.invoiceContentType);
     assertInvoiceSizeWithinLimit(input.invoiceBase64);
 
     const bytes = base64ToBytes(input.invoiceBase64);
-    invoiceKey = `water-bills/${waterBillId}/${Date.now()}-${sanitizeFileName(input.invoiceFileName)}`;
+    invoiceKey = `rateios/${rateioId}/${Date.now()}-${sanitizeFileName(input.invoiceFileName)}`;
     await getR2().put(invoiceKey, bytes, {
       httpMetadata: { contentType: input.invoiceContentType },
     });
@@ -269,11 +301,13 @@ export async function createWaterBillRateio(input: {
 
   await d1
     .prepare(
-      `INSERT INTO water_bills (id, reference, total_amount, invoice_key, invoice_content_type, invoice_file_name, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO rateios (id, category, description, reference, total_amount, invoice_key, invoice_content_type, invoice_file_name, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
-      waterBillId,
+      rateioId,
+      category,
+      input.description?.trim() || null,
       reference,
       input.totalAmount,
       invoiceKey,
@@ -286,10 +320,10 @@ export async function createWaterBillRateio(input: {
   for (const propertyId of uniquePropertyIds) {
     await d1
       .prepare(
-        `INSERT INTO water_bill_allocations (id, water_bill_id, property_id, amount, charge_id, applied_at)
+        `INSERT INTO rateio_allocations (id, rateio_id, property_id, amount, charge_id, applied_at)
          VALUES (?, ?, ?, ?, NULL, NULL)`,
       )
-      .bind(createId("wsh"), waterBillId, propertyId, amountsByProperty[propertyId])
+      .bind(createId("rlc"), rateioId, propertyId, amountsByProperty[propertyId])
       .run();
   }
 
@@ -306,7 +340,7 @@ export async function createWaterBillRateio(input: {
     appliedCount,
     pendingCount: uniquePropertyIds.length - appliedCount,
     perPropertyAmount,
-    waterBillId,
+    rateioId,
   };
 }
 
@@ -336,18 +370,18 @@ async function tryApplyAllocation(
     return false;
   }
 
-  return applyPendingWaterAllocations(propertyId, reference, charge.id);
+  return applyPendingRateioAllocations(propertyId, reference, charge.id);
 }
 
 /**
- * Folds every still-unapplied water allocation for (propertyId, reference)
- * into `chargeId`: adds the total to `original_amount` and `water_amount`,
+ * Folds every still-unapplied rateio allocation for (propertyId, reference)
+ * into `chargeId`: adds the total to `original_amount` and `rateio_amount`,
  * then marks those allocations as applied. Called both right after a new
- * charge is created (see charge-scheduler.ts) and from
- * `createWaterBillRateio` when the charge already existed. Safe to call even
- * when there's nothing pending (no-op).
+ * charge is created (see charge-scheduler.ts) and from `createRateio` when
+ * the charge already existed. Safe to call even when there's nothing pending
+ * (no-op).
  */
-export async function applyPendingWaterAllocations(
+export async function applyPendingRateioAllocations(
   propertyId: string,
   reference: string,
   chargeId: string,
@@ -355,7 +389,7 @@ export async function applyPendingWaterAllocations(
   const d1 = getD1();
   const pending = await d1
     .prepare(
-      "SELECT id, amount FROM water_bill_allocations WHERE property_id = ? AND applied_at IS NULL AND water_bill_id IN (SELECT id FROM water_bills WHERE reference = ?)",
+      "SELECT id, amount FROM rateio_allocations WHERE property_id = ? AND applied_at IS NULL AND rateio_id IN (SELECT id FROM rateios WHERE reference = ?)",
     )
     .bind(propertyId, reference)
     .all<{ id: string; amount: number }>();
@@ -368,7 +402,7 @@ export async function applyPendingWaterAllocations(
 
   await d1
     .prepare(
-      "UPDATE charges SET original_amount = original_amount + ?, water_amount = COALESCE(water_amount, 0) + ? WHERE id = ?",
+      "UPDATE charges SET original_amount = original_amount + ?, rateio_amount = COALESCE(rateio_amount, 0) + ? WHERE id = ?",
     )
     .bind(total, total, chargeId)
     .run();
@@ -376,7 +410,7 @@ export async function applyPendingWaterAllocations(
   const now = new Date().toISOString();
   for (const row of pending.results) {
     await d1
-      .prepare("UPDATE water_bill_allocations SET applied_at = ?, charge_id = ? WHERE id = ?")
+      .prepare("UPDATE rateio_allocations SET applied_at = ?, charge_id = ? WHERE id = ?")
       .bind(now, chargeId, row.id)
       .run();
   }
@@ -384,8 +418,25 @@ export async function applyPendingWaterAllocations(
   return true;
 }
 
-type WaterBillRow = {
+/** Distinct rateio categories (e.g. ["agua", "condominio"]) already folded into a given charge. */
+export async function getRateioCategoriesForCharge(chargeId: string): Promise<string[]> {
+  const d1 = getD1();
+  const rows = await d1
+    .prepare(
+      `SELECT DISTINCT r.category as category
+       FROM rateio_allocations a
+       JOIN rateios r ON r.id = a.rateio_id
+       WHERE a.charge_id = ?`,
+    )
+    .bind(chargeId)
+    .all<{ category: string }>();
+  return rows.results.map((row) => row.category);
+}
+
+type RateioRow = {
   id: string;
+  category: string;
+  description: string | null;
   reference: string;
   total_amount: number;
   invoice_key: string | null;
@@ -393,9 +444,9 @@ type WaterBillRow = {
   created_at: string;
 };
 
-type WaterBillAllocationRow = {
+type RateioAllocationRow = {
   id: string;
-  water_bill_id: string;
+  rateio_id: string;
   property_id: string;
   property_name: string;
   amount: number;
@@ -403,25 +454,25 @@ type WaterBillAllocationRow = {
   applied_at: string | null;
 };
 
-export async function listWaterBills(): Promise<WaterBill[]> {
+export async function listRateios(): Promise<Rateio[]> {
   const d1 = getD1();
-  await ensureWaterBillTables(d1);
+  await ensureRateioTables(d1);
 
-  const [bills, allocations] = await Promise.all([
-    d1.prepare("SELECT * FROM water_bills ORDER BY created_at DESC").all<WaterBillRow>(),
+  const [rateios, allocations] = await Promise.all([
+    d1.prepare("SELECT * FROM rateios ORDER BY created_at DESC").all<RateioRow>(),
     d1
       .prepare(
         `SELECT a.*, p.name as property_name
-         FROM water_bill_allocations a
+         FROM rateio_allocations a
          JOIN properties p ON p.id = a.property_id
          ORDER BY p.name ASC`,
       )
-      .all<WaterBillAllocationRow>(),
+      .all<RateioAllocationRow>(),
   ]);
 
-  const allocationsByBill = new Map<string, WaterBillAllocation[]>();
+  const allocationsByRateio = new Map<string, RateioAllocation[]>();
   for (const row of allocations.results) {
-    const list = allocationsByBill.get(row.water_bill_id) ?? [];
+    const list = allocationsByRateio.get(row.rateio_id) ?? [];
     list.push({
       amount: row.amount,
       applied: Boolean(row.applied_at),
@@ -430,12 +481,14 @@ export async function listWaterBills(): Promise<WaterBill[]> {
       propertyId: row.property_id,
       propertyName: row.property_name,
     });
-    allocationsByBill.set(row.water_bill_id, list);
+    allocationsByRateio.set(row.rateio_id, list);
   }
 
-  return bills.results.map((row) => ({
-    allocations: allocationsByBill.get(row.id) ?? [],
+  return rateios.results.map((row) => ({
+    allocations: allocationsByRateio.get(row.id) ?? [],
+    category: row.category,
     createdAt: row.created_at,
+    description: row.description,
     id: row.id,
     invoiceFileName: row.invoice_file_name,
     reference: row.reference,
@@ -443,7 +496,7 @@ export async function listWaterBills(): Promise<WaterBill[]> {
   }));
 }
 
-export async function getWaterBillInvoiceBinary(waterBillId: string): Promise<{
+export async function getRateioInvoiceBinary(rateioId: string): Promise<{
   bytes: ArrayBuffer;
   contentType: string;
   fileName: string;
@@ -451,9 +504,9 @@ export async function getWaterBillInvoiceBinary(waterBillId: string): Promise<{
   const d1 = getD1();
   const row = await d1
     .prepare(
-      "SELECT invoice_key, invoice_content_type, invoice_file_name FROM water_bills WHERE id = ?",
+      "SELECT invoice_key, invoice_content_type, invoice_file_name FROM rateios WHERE id = ?",
     )
-    .bind(waterBillId)
+    .bind(rateioId)
     .first<{ invoice_key: string | null; invoice_content_type: string | null; invoice_file_name: string | null }>();
 
   if (!row?.invoice_key) {
@@ -468,6 +521,6 @@ export async function getWaterBillInvoiceBinary(waterBillId: string): Promise<{
   return {
     bytes: await object.arrayBuffer(),
     contentType: row.invoice_content_type ?? "application/octet-stream",
-    fileName: row.invoice_file_name ?? "fatura-agua",
+    fileName: row.invoice_file_name ?? "comprovante-rateio",
   };
 }

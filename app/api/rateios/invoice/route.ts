@@ -1,21 +1,21 @@
 import { requireApiUser, UnauthorizedError } from "../../../lib/session";
-import { getWaterBillInvoiceBinary } from "../../../lib/water-bills";
+import { getRateioInvoiceBinary } from "../../../lib/rateios";
 import { ensureRentalDatabase } from "../../../lib/rental-repository";
 
-/** Streams the uploaded water bill invoice (admin only, no tenant access). */
+/** Streams the uploaded rateio invoice/receipt (admin only, no tenant access). */
 export async function GET(request: Request) {
   try {
     await requireApiUser(["admin"]);
     await ensureRentalDatabase();
 
-    const waterBillId = new URL(request.url).searchParams.get("waterBillId")?.trim();
-    if (!waterBillId) {
-      throw new Error("waterBillId is required");
+    const rateioId = new URL(request.url).searchParams.get("rateioId")?.trim();
+    if (!rateioId) {
+      throw new Error("rateioId is required");
     }
 
-    const invoice = await getWaterBillInvoiceBinary(waterBillId);
+    const invoice = await getRateioInvoiceBinary(rateioId);
     if (!invoice) {
-      return Response.json({ error: "Fatura nao encontrada." }, { status: 404 });
+      return Response.json({ error: "Comprovante nao encontrado." }, { status: 404 });
     }
 
     return new Response(invoice.bytes, {

@@ -1,16 +1,16 @@
 import Link from "next/link";
 import { getRentalData } from "../lib/rental-repository";
-import { listWaterBills, getResidentInfoForProperties } from "../lib/water-bills";
+import { listRateios, getResidentInfoForProperties } from "../lib/rateios";
 import { requireUser } from "../lib/session";
 import { LogoutButton } from "../components/LogoutButton";
 import { ThemeToggle } from "../components/ThemeToggle";
-import { WaterBillWorkspace } from "./WaterBillWorkspace";
+import { RateioWorkspace } from "./RateioWorkspace";
 
 export const dynamic = "force-dynamic";
 
-export default async function WaterBillPage() {
+export default async function RateiosPage() {
   await requireUser(["admin"]);
-  const [rentalData, waterBills] = await Promise.all([getRentalData(), listWaterBills()]);
+  const [rentalData, rateios] = await Promise.all([getRentalData(), listRateios()]);
   const residentInfo = await getResidentInfoForProperties(
     rentalData.properties.map((property) => property.id),
   );
@@ -29,12 +29,14 @@ export default async function WaterBillPage() {
               Voltar ao painel
             </Link>
             <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
-              Rateio de agua
+              Rateios
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-              Informe o valor da fatura de agua do mes, escolha quais imoveis
-              participam do rateio e o valor e somado automaticamente na
-              cobranca do inquilino de cada imovel selecionado.
+              Divida qualquer despesa compartilhada entre imoveis (agua,
+              condominio, gas, internet, ou qualquer outra) — escolha a
+              categoria, informe o valor do mes, quais imoveis participam e o
+              valor e somado automaticamente na cobranca do inquilino de cada
+              imovel selecionado.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -43,9 +45,9 @@ export default async function WaterBillPage() {
           </div>
         </header>
 
-        <WaterBillWorkspace
+        <RateioWorkspace
           initialProperties={propertiesWithResidents}
-          initialWaterBills={waterBills}
+          initialRateios={rateios}
         />
       </div>
     </main>

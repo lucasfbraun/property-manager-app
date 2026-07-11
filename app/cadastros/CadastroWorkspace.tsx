@@ -930,7 +930,7 @@ function PaymentBadge({ charge }: { charge: Charge | undefined }) {
       }
     >
       {charge.reference}: {charge.status}
-      {charge.waterAmount ? ` (+agua ${formatCurrency(charge.waterAmount)})` : ""}
+      {charge.rateioAmount ? ` (+rateio ${formatCurrency(charge.rateioAmount)})` : ""}
     </span>
   );
 }

@@ -13,7 +13,7 @@ const NAV_LINKS: MobileNavLink[] = [
   { href: "#inquilinos", label: "Inquilinos" },
   { href: "/cadastros", label: "Cadastros" },
   { href: "/contratos", label: "Contratos e assinaturas" },
-  { href: "/rateio-agua", label: "Rateio de agua" },
+  { href: "/rateios", label: "Rateios" },
   { href: "/integracoes", label: "Integracoes" },
   { href: "/inquilino", label: "Portal do inquilino" },
 ];
@@ -58,7 +58,7 @@ export default async function Home() {
             <NavItem href="#inquilinos" label="Inquilinos" />
             <NavItem href="/cadastros" label="Cadastros" />
             <NavItem href="/contratos" label="Contratos e assinaturas" />
-            <NavItem href="/rateio-agua" label="Rateio de agua" />
+            <NavItem href="/rateios" label="Rateios" />
             <NavItem href="/integracoes" label="Integracoes" />
             <NavItem href="/inquilino" label="Portal do inquilino" />
           </nav>

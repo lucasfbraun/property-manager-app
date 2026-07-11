@@ -54,7 +54,7 @@ export type Tenant = {
   email: string;
   whatsapp: string;
   status: PersonStatus;
-  /** Number of people living at the property, used to split water bills fairly. Null when not informed. */
+  /** Number of people living at the property, used to split rateios fairly. Null when not informed. */
   residentCount: number | null;
 };
 
@@ -102,8 +102,8 @@ export type Charge = {
   pixQrCode: string | null;
   pixQrCodeBase64: string | null;
   pixExpiresAt: string | null;
-  /** Portion of `amount` that comes from a water bill rateio (rest is rent). Null when none was applied. */
-  waterAmount: number | null;
+  /** Portion of `amount` that comes from a rateio (water, condominio, gas, etc. — rest is rent). Null when none was applied. */
+  rateioAmount: number | null;
 };
 
 export type PaymentProjection = Charge & {
@@ -283,7 +283,7 @@ export const charges: Charge[] = [
     pixQrCode: null,
     pixQrCodeBase64: null,
     pixExpiresAt: null,
-    waterAmount: null,
+    rateioAmount: null,
   },
   {
     id: "chg-2026-06-1002",
@@ -295,7 +295,7 @@ export const charges: Charge[] = [
     pixQrCode: null,
     pixQrCodeBase64: null,
     pixExpiresAt: null,
-    waterAmount: null,
+    rateioAmount: null,
   },
   {
     id: "chg-2026-07-1003",
@@ -307,7 +307,7 @@ export const charges: Charge[] = [
     pixQrCode: null,
     pixQrCodeBase64: null,
     pixExpiresAt: null,
-    waterAmount: null,
+    rateioAmount: null,
   },
 ];
 

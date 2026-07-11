@@ -1,6 +1,6 @@
 import { getD1 } from "../../db";
 import { ensureRentalDatabase } from "./rental-repository";
-import { applyPendingWaterAllocations } from "./water-bills";
+import { applyPendingRateioAllocations } from "./rateios";
 
 type ActiveContractRow = {
   id: string;
@@ -147,9 +147,9 @@ export async function generateChargeForContract(contractId: string): Promise<{
     reference,
   });
 
-  // Folds in any water bill rateio share that was recorded for this
-  // property/month before the charge existed (see app/lib/water-bills.ts).
-  await applyPendingWaterAllocations(contract.property_id, reference, chargeId);
+  // Folds in any rateio share that was recorded for this property/month
+  // before the charge existed (see app/lib/rateios.ts).
+  await applyPendingRateioAllocations(contract.property_id, reference, chargeId);
 
   return { chargeId, created: true, reference };
 }
@@ -192,7 +192,7 @@ export async function runMonthlyChargeSweep(): Promise<{ created: number; skippe
       receiverId: contract.receiver_id,
       reference,
     });
-    await applyPendingWaterAllocations(contract.property_id, reference, chargeId);
+    await applyPendingRateioAllocations(contract.property_id, reference, chargeId);
     created += 1;
   }
 

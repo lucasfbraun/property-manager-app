@@ -5,6 +5,15 @@ import type { Property } from "../lib/rentals";
 import { formatCurrency } from "../lib/rentals";
 import { fileToBase64 } from "../lib/client-files";
 
+const RATEIO_CATEGORIES = [
+  { label: "Agua", value: "agua" },
+  { label: "Condominio", value: "condominio" },
+  { label: "Gas", value: "gas" },
+  { label: "Internet/TV", value: "internet" },
+  { label: "IPTU", value: "iptu" },
+  { label: "Outro", value: "outro" },
+];
+
 type PropertyWithResidents = Property & {
   residentCount: number | null;
   tenantName: string | null;
@@ -12,7 +21,7 @@ type PropertyWithResidents = Property & {
 
 type SplitMode = "equal" | "residents";
 
-type WaterBillAllocation = {
+type RateioAllocation = {
   id: string;
   propertyId: string;
   propertyName: string;
@@ -21,16 +30,22 @@ type WaterBillAllocation = {
   chargeId: string | null;
 };
 
-type WaterBill = {
+type Rateio = {
   id: string;
+  category: string;
+  description: string | null;
   reference: string;
   totalAmount: number;
   invoiceFileName: string | null;
   createdAt: string;
-  allocations: WaterBillAllocation[];
+  allocations: RateioAllocation[];
 };
 
 const ACCEPTED_INVOICE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+
+function categoryLabel(category: string): string {
+  return RATEIO_CATEGORIES.find((item) => item.value === category)?.label ?? category;
+}
 
 /** "2026-07" -> "Julho/2026", matching the same reference format charges use (app/lib/charge-scheduler.ts). */
 function formatMonthReference(monthValue: string): string {
@@ -47,8 +62,8 @@ function formatMonthReference(monthValue: string): string {
 }
 
 /**
- * Mirrors the server-side split in app/lib/water-bills.ts (splitByWeights)
- * so the preview shown to the admin matches what will actually be charged.
+ * Mirrors the server-side split in app/lib/rateios.ts (splitByWeights) so
+ * the preview shown to the admin matches what will actually be charged.
  */
 function previewShares(
   totalAmount: number,
@@ -73,14 +88,16 @@ function previewShares(
   });
 }
 
-export function WaterBillWorkspace({
+export function RateioWorkspace({
   initialProperties,
-  initialWaterBills,
+  initialRateios,
 }: {
   initialProperties: PropertyWithResidents[];
-  initialWaterBills: WaterBill[];
+  initialRateios: Rateio[];
 }) {
-  const [waterBills, setWaterBills] = useState<WaterBill[]>(initialWaterBills);
+  const [rateios, setRateios] = useState<Rateio[]>(initialRateios);
+  const [category, setCategory] = useState("agua");
+  const [description, setDescription] = useState("");
   const [month, setMonth] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
@@ -108,13 +125,13 @@ export function WaterBillWorkspace({
     return previewShares(parsedAmount, selectedProperties, splitMode);
   }, [parsedAmount, selectedProperties, splitMode]);
 
-  async function refreshWaterBills() {
-    const response = await fetch("/api/water-bills");
+  async function refreshRateios() {
+    const response = await fetch("/api/rateios");
     if (!response.ok) {
       return;
     }
-    const result = (await response.json()) as { waterBills: WaterBill[] };
-    setWaterBills(result.waterBills);
+    const result = (await response.json()) as { rateios: Rateio[] };
+    setRateios(result.rateios);
   }
 
   async function submitRateio() {
@@ -134,7 +151,7 @@ export function WaterBillWorkspace({
       return;
     }
     if (invoiceFile && !ACCEPTED_INVOICE_TYPES.includes(invoiceFile.type)) {
-      setMessage("A fatura precisa ser JPG, PNG ou PDF.");
+      setMessage("O comprovante precisa ser JPG, PNG ou PDF.");
       return;
     }
 
@@ -142,8 +159,10 @@ export function WaterBillWorkspace({
     try {
       const invoiceBase64 = invoiceFile ? await fileToBase64(invoiceFile) : undefined;
 
-      const response = await fetch("/api/water-bills", {
+      const response = await fetch("/api/rateios", {
         body: JSON.stringify({
+          category,
+          description: description || undefined,
           invoiceBase64,
           invoiceContentType: invoiceFile?.type,
           invoiceFileName: invoiceFile?.name,
@@ -173,15 +192,16 @@ export function WaterBillWorkspace({
         : "";
 
       setMessage(
-        `Rateio registrado (${splitMode === "residents" ? "proporcional a moradores" : "igual entre imoveis"}). ` +
+        `Rateio de ${categoryLabel(category)} registrado (${splitMode === "residents" ? "proporcional a moradores" : "igual entre imoveis"}). ` +
           (breakdown ? `${breakdown}. ` : "") +
           `${result.appliedCount ?? 0} cobranca(s) atualizada(s) na hora` +
           (result.pendingCount ? `, ${result.pendingCount} pendente(s) ate a cobranca ser gerada.` : "."),
       );
       setTotalAmount("");
+      setDescription("");
       setSelectedPropertyIds([]);
       setInvoiceFile(null);
-      await refreshWaterBills();
+      await refreshRateios();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Erro inesperado.");
     } finally {
@@ -194,10 +214,45 @@ export function WaterBillWorkspace({
       <section className="surface-card p-4">
         <h2 className="font-semibold">Novo rateio</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-slate-400">
-          O valor total e dividido entre os imoveis selecionados (igualmente
-          ou proporcional ao numero de moradores) e somado na cobranca do mes
-          de cada um.
+          Escolha a categoria da despesa, o valor total e os imoveis
+          participantes. O valor e dividido entre eles (igualmente ou
+          proporcional ao numero de moradores) e somado na cobranca do mes de
+          cada um.
         </p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-slate-700 dark:text-slate-300">
+              Categoria da despesa
+            </span>
+            <select
+              className="input-field"
+              onChange={(event) => setCategory(event.target.value)}
+              value={category}
+            >
+              {RATEIO_CATEGORIES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-slate-700 dark:text-slate-300">
+              Descricao (opcional)
+            </span>
+            <input
+              className="input-field"
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder={
+                category === "outro"
+                  ? "Descreva o tipo de despesa"
+                  : "Ex: conta de julho, hidrometro compartilhado"
+              }
+              value={description}
+            />
+          </label>
+        </div>
 
         <div className="mt-4">
           <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -253,7 +308,7 @@ export function WaterBillWorkspace({
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-slate-700 dark:text-slate-300">
-              Valor total da fatura (R$)
+              Valor total (R$)
             </span>
             <input
               className="input-field"
@@ -317,10 +372,10 @@ export function WaterBillWorkspace({
 
         <div className="mt-4">
           <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-            Fatura de agua (opcional)
+            Comprovante (opcional)
           </span>
           <label className="btn-secondary inline-flex cursor-pointer">
-            {invoiceFile ? invoiceFile.name : "Anexar fatura (JPG, PNG ou PDF)"}
+            {invoiceFile ? invoiceFile.name : "Anexar comprovante (JPG, PNG ou PDF)"}
             <input
               accept="image/jpeg,image/png,application/pdf"
               className="hidden"
@@ -346,38 +401,44 @@ export function WaterBillWorkspace({
 
       <section className="surface-card p-4">
         <h2 className="mb-3 font-semibold">Rateios registrados</h2>
-        {waterBills.length === 0 ? (
+        {rateios.length === 0 ? (
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Nenhum rateio de agua registrado ainda.
+            Nenhum rateio registrado ainda.
           </p>
         ) : (
           <div className="space-y-3">
-            {waterBills.map((bill) => (
+            {rateios.map((rateio) => (
               <div
                 className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5"
-                key={bill.id}
+                key={rateio.id}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <h3 className="font-semibold">{bill.reference}</h3>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold">{rateio.reference}</h3>
+                      <span className="rounded-full bg-[#DBEAFE] px-2.5 py-1 text-xs font-semibold text-[#1D4ED8] dark:bg-blue-500/10 dark:text-blue-300">
+                        {categoryLabel(rateio.category)}
+                      </span>
+                    </div>
                     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      Total: {formatCurrency(bill.totalAmount)} - dividido entre{" "}
-                      {bill.allocations.length} imovel(is)
+                      Total: {formatCurrency(rateio.totalAmount)} - dividido entre{" "}
+                      {rateio.allocations.length} imovel(is)
+                      {rateio.description ? ` - ${rateio.description}` : ""}
                     </p>
                   </div>
-                  {bill.invoiceFileName ? (
+                  {rateio.invoiceFileName ? (
                     <a
                       className="text-xs font-semibold text-[#2563EB] hover:underline dark:text-blue-400"
-                      href={`/api/water-bills/invoice?waterBillId=${bill.id}`}
+                      href={`/api/rateios/invoice?rateioId=${rateio.id}`}
                       rel="noreferrer"
                       target="_blank"
                     >
-                      Ver fatura anexada
+                      Ver comprovante anexado
                     </a>
                   ) : null}
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                  {bill.allocations.map((allocation) => (
+                  {rateio.allocations.map((allocation) => (
                     <div
                       className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs dark:border-white/10 dark:bg-[#0F172A]"
                       key={allocation.id}
