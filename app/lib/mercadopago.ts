@@ -519,6 +519,16 @@ export async function getLatestChargeIdForContract(contractId: string): Promise<
   return row?.id ?? null;
 }
 
+/** Raw DB status ('open' | 'waiting_payment' | 'paid' | 'cancelled' | ...), used to gate the payment receipt. */
+export async function getChargeStatus(chargeId: string): Promise<string | null> {
+  const d1 = getD1();
+  const row = await d1
+    .prepare("SELECT status FROM charges WHERE id = ?")
+    .bind(chargeId)
+    .first<{ status: string }>();
+  return row?.status ?? null;
+}
+
 export async function getChargeTenantId(chargeId: string): Promise<string | null> {
   const d1 = getD1();
   const row = await d1

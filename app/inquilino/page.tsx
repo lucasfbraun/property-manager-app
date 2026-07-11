@@ -173,6 +173,7 @@ export default async function TenantPortal() {
                       <th className="px-3 py-3">Metodo</th>
                       <th className="px-3 py-3 text-right">Valor</th>
                       <th className="px-3 py-3">Status</th>
+                      <th className="px-3 py-3">Recibo</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-white/10">
@@ -196,6 +197,22 @@ export default async function TenantPortal() {
                           >
                             {charge.status}
                           </span>
+                        </td>
+                        <td className="px-3 py-3">
+                          {charge.status === "Paga" ? (
+                            <a
+                              className="text-xs font-semibold text-[#2563EB] hover:underline dark:text-blue-400"
+                              href={`/api/charges/receipt?chargeId=${charge.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Gerar recibo de pagamento
+                            </a>
+                          ) : (
+                            <span className="text-xs text-slate-400 dark:text-slate-600">
+                              Disponivel apos o pagamento
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}

@@ -39,7 +39,7 @@ export async function buildContractPdf(input: {
   return pdfDoc.save();
 }
 
-function sanitizeForWinAnsi(text: string): string {
+export function sanitizeForWinAnsi(text: string): string {
   // Strips characters outside the WinAnsi range pdf-lib's standard fonts
   // support (keeps ASCII + Latin-1 Supplement, which covers Portuguese
   // accents), so an unexpected symbol/emoji never throws mid-render.
@@ -51,7 +51,7 @@ function sanitizeForWinAnsi(text: string): string {
     .join("");
 }
 
-function wrapLine(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+export function wrapLine(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const words = text.split(/\s+/).filter(Boolean);
   if (words.length === 0) {
     return [""];

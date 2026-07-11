@@ -51,6 +51,7 @@ export default async function CadastrosPage({
         ) : null}
 
         <CadastroWorkspace
+          initialCharges={data.charges}
           initialContracts={data.contracts}
           initialProperties={data.properties}
           initialReceivers={data.receivers}

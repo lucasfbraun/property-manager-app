@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type {
+  Charge,
   Contract,
   Property,
   Receiver,
@@ -14,6 +15,7 @@ type DraftState = {
   properties: Property[];
   receivers: Receiver[];
   contracts: Contract[];
+  charges: Charge[];
 };
 
 type EditingTarget =
@@ -24,17 +26,20 @@ type EditingTarget =
   | null;
 
 export function CadastroWorkspace({
+  initialCharges,
   initialContracts,
   initialProperties,
   initialReceivers,
   initialTenants,
 }: {
+  initialCharges: Charge[];
   initialContracts: Contract[];
   initialProperties: Property[];
   initialReceivers: Receiver[];
   initialTenants: Tenant[];
 }) {
   const [state, setState] = useState<DraftState>({
+    charges: initialCharges,
     contracts: initialContracts,
     properties: initialProperties,
     receivers: initialReceivers,
@@ -616,6 +621,7 @@ export function CadastroWorkspace({
                 <th className="px-3 py-3 text-right">Valor</th>
                 <th className="px-3 py-3">Vencimento</th>
                 <th className="px-3 py-3">Status</th>
+                <th className="px-3 py-3">Pagamento</th>
                 <th className="px-3 py-3 text-right">Acoes</th>
               </tr>
             </thead>
@@ -632,6 +638,9 @@ export function CadastroWorkspace({
                 );
                 const isEditingContract =
                   editing?.type === "contract" && editing.id === contract.id;
+                const latestCharge = state.charges
+                  .filter((charge) => charge.contractId === contract.id)
+                  .sort((a, b) => (a.dueDate < b.dueDate ? 1 : -1))[0];
 
                 return (
                   <>
@@ -654,6 +663,23 @@ export function CadastroWorkspace({
                       </td>
                       <td className="px-3 py-3 text-neutral-600 dark:text-slate-400">
                         {contract.status}
+                      </td>
+                      <td className="px-3 py-3">
+                        {latestCharge ? (
+                          <span
+                            className={
+                              latestCharge.status === "Paga"
+                                ? "rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30"
+                                : "rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30"
+                            }
+                          >
+                            {latestCharge.reference}: {latestCharge.status}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400 dark:text-slate-600">
+                            Sem cobranca
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-3 text-right">
                         <div className="flex justify-end gap-2">
