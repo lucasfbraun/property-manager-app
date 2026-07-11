@@ -43,6 +43,8 @@ export type Receiver = {
   mpConnectedAt: string | null;
   /** null = never connected; true = live/production token; false = TEST (sandbox) token. */
   mpLiveMode: boolean | null;
+  /** MP's own user_id for the connected account, returned by the OAuth token exchange. */
+  mpUserId: string | null;
 };
 
 export type Tenant = {
@@ -123,6 +125,7 @@ export const receivers: Receiver[] = [
     mpConnected: false,
     mpConnectedAt: null,
     mpLiveMode: null,
+    mpUserId: null,
   },
   {
     id: "rec-guilherme",
@@ -133,6 +136,7 @@ export const receivers: Receiver[] = [
     mpConnected: false,
     mpConnectedAt: null,
     mpLiveMode: null,
+    mpUserId: null,
   },
 ];
 

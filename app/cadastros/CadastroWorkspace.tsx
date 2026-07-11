@@ -556,7 +556,7 @@ export function CadastroWorkspace({
                 }
               >
                 {receiver.mpConnected
-                  ? `Mercado Pago conectado (token ${receiver.mpLiveMode ? "PRODUCAO" : "TESTE"})`
+                  ? `Mercado Pago conectado (token ${receiver.mpLiveMode ? "PRODUCAO" : "TESTE"}, user_id ${receiver.mpUserId ?? "?"})`
                   : "Mercado Pago nao conectado"}
               </span>
               <a

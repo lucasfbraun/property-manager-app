@@ -47,6 +47,7 @@ type ReceiverRow = {
   mp_access_token: string | null;
   mp_connected_at: string | null;
   mp_live_mode: number | null;
+  mp_user_id: string | null;
 };
 
 type ContractRow = {
@@ -762,6 +763,7 @@ function mapReceiver(row: ReceiverRow): Receiver {
     mpConnected: Boolean(row.mp_access_token),
     mpConnectedAt: row.mp_connected_at,
     mpLiveMode: row.mp_live_mode === null ? null : Boolean(row.mp_live_mode),
+    mpUserId: row.mp_user_id,
     name: row.name,
   };
 }
