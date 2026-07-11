@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Property } from "../lib/rentals";
 import { formatCurrency } from "../lib/rentals";
 import { fileToBase64 } from "../lib/client-files";
+
+type PropertyWithResidents = Property & {
+  residentCount: number | null;
+  tenantName: string | null;
+};
+
+type SplitMode = "equal" | "residents";
 
 type WaterBillAllocation = {
   id: string;
@@ -39,17 +46,45 @@ function formatMonthReference(monthValue: string): string {
   return `${capitalized}/${year}`;
 }
 
+/**
+ * Mirrors the server-side split in app/lib/water-bills.ts (splitByWeights)
+ * so the preview shown to the admin matches what will actually be charged.
+ */
+function previewShares(
+  totalAmount: number,
+  properties: PropertyWithResidents[],
+  splitMode: SplitMode,
+): Array<{ property: PropertyWithResidents; weight: number; amount: number }> {
+  const weights = properties.map((property) =>
+    splitMode === "residents" ? property.residentCount ?? 1 : 1,
+  );
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0) || properties.length;
+
+  let allocated = 0;
+  return properties.map((property, index) => {
+    const isLast = index === properties.length - 1;
+    const amount = isLast
+      ? Math.round((totalAmount - allocated) * 100) / 100
+      : Math.round(((totalAmount * weights[index]) / totalWeight) * 100) / 100;
+    if (!isLast) {
+      allocated += amount;
+    }
+    return { amount, property, weight: weights[index] };
+  });
+}
+
 export function WaterBillWorkspace({
   initialProperties,
   initialWaterBills,
 }: {
-  initialProperties: Property[];
+  initialProperties: PropertyWithResidents[];
   initialWaterBills: WaterBill[];
 }) {
   const [waterBills, setWaterBills] = useState<WaterBill[]>(initialWaterBills);
   const [month, setMonth] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
+  const [splitMode, setSplitMode] = useState<SplitMode>("residents");
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -61,6 +96,17 @@ export function WaterBillWorkspace({
         : [...current, propertyId],
     );
   }
+
+  const selectedProperties = initialProperties.filter((property) =>
+    selectedPropertyIds.includes(property.id),
+  );
+  const parsedAmount = Number(totalAmount.replace(",", "."));
+  const preview = useMemo(() => {
+    if (selectedProperties.length === 0 || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return [];
+    }
+    return previewShares(parsedAmount, selectedProperties, splitMode);
+  }, [parsedAmount, selectedProperties, splitMode]);
 
   async function refreshWaterBills() {
     const response = await fetch("/api/water-bills");
@@ -103,6 +149,7 @@ export function WaterBillWorkspace({
           invoiceFileName: invoiceFile?.name,
           propertyIds: selectedPropertyIds,
           reference: formatMonthReference(month),
+          splitMode,
           totalAmount: amount,
         }),
         headers: { "Content-Type": "application/json" },
@@ -112,14 +159,22 @@ export function WaterBillWorkspace({
         perPropertyAmount?: number;
         appliedCount?: number;
         pendingCount?: number;
+        amountsByProperty?: Record<string, number>;
         error?: string;
       };
       if (!response.ok) {
         throw new Error(result.error ?? "Falha ao registrar o rateio.");
       }
 
+      const breakdown = result.amountsByProperty
+        ? selectedProperties
+            .map((property) => `${property.name}: ${formatCurrency(result.amountsByProperty?.[property.id] ?? 0)}`)
+            .join(", ")
+        : "";
+
       setMessage(
-        `Rateio registrado: ${formatCurrency(result.perPropertyAmount ?? 0)} por imovel. ` +
+        `Rateio registrado (${splitMode === "residents" ? "proporcional a moradores" : "igual entre imoveis"}). ` +
+          (breakdown ? `${breakdown}. ` : "") +
           `${result.appliedCount ?? 0} cobranca(s) atualizada(s) na hora` +
           (result.pendingCount ? `, ${result.pendingCount} pendente(s) ate a cobranca ser gerada.` : "."),
       );
@@ -139,9 +194,50 @@ export function WaterBillWorkspace({
       <section className="surface-card p-4">
         <h2 className="font-semibold">Novo rateio</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-slate-400">
-          O valor total e dividido igualmente entre os imoveis selecionados e
-          somado na cobranca do mes de cada um.
+          O valor total e dividido entre os imoveis selecionados (igualmente
+          ou proporcional ao numero de moradores) e somado na cobranca do mes
+          de cada um.
         </p>
+
+        <div className="mt-4">
+          <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Modo de rateio
+          </span>
+          <div className="flex flex-wrap gap-2">
+            <label
+              className={`cursor-pointer rounded-md border px-3 py-2 text-sm ${
+                splitMode === "residents"
+                  ? "border-[#2563EB] bg-[#DBEAFE] font-semibold text-[#1D4ED8] dark:border-blue-500 dark:bg-blue-500/10 dark:text-blue-300"
+                  : "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"
+              }`}
+            >
+              <input
+                checked={splitMode === "residents"}
+                className="mr-2"
+                name="splitMode"
+                onChange={() => setSplitMode("residents")}
+                type="radio"
+              />
+              Proporcional ao numero de moradores (mais justo)
+            </label>
+            <label
+              className={`cursor-pointer rounded-md border px-3 py-2 text-sm ${
+                splitMode === "equal"
+                  ? "border-[#2563EB] bg-[#DBEAFE] font-semibold text-[#1D4ED8] dark:border-blue-500 dark:bg-blue-500/10 dark:text-blue-300"
+                  : "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"
+              }`}
+            >
+              <input
+                checked={splitMode === "equal"}
+                className="mr-2"
+                name="splitMode"
+                onChange={() => setSplitMode("equal")}
+                type="radio"
+              />
+              Igual entre os imoveis
+            </label>
+          </div>
+        </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="text-sm">
@@ -176,19 +272,48 @@ export function WaterBillWorkspace({
           <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
             {initialProperties.map((property) => (
               <label
-                className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5"
+                className="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5"
                 key={property.id}
               >
                 <input
                   checked={selectedPropertyIds.includes(property.id)}
+                  className="mt-1"
                   onChange={() => toggleProperty(property.id)}
                   type="checkbox"
                 />
-                {property.name}
+                <span>
+                  <span className="block">{property.name}</span>
+                  <span className="block text-xs text-slate-500 dark:text-slate-400">
+                    {property.residentCount != null
+                      ? `${property.residentCount} morador(es)${property.tenantName ? ` - ${property.tenantName}` : ""}`
+                      : property.tenantName
+                        ? `${property.tenantName} - moradores nao informados`
+                        : "sem inquilino ativo"}
+                  </span>
+                </span>
               </label>
             ))}
           </div>
         </div>
+
+        {preview.length > 0 ? (
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+            <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+              Pre-visualizacao do rateio
+            </p>
+            <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+              {preview.map(({ property, weight, amount }) => (
+                <p key={property.id}>
+                  {property.name}
+                  {splitMode === "residents" ? ` (${weight} morador(es))` : ""}:{" "}
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {formatCurrency(amount)}
+                  </span>
+                </p>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-4">
           <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">

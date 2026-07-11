@@ -44,6 +44,89 @@ export type WaterBill = {
   allocations: WaterBillAllocation[];
 };
 
+export type WaterBillSplitMode = "equal" | "residents";
+
+export type PropertyResidentInfo = {
+  propertyId: string;
+  tenantName: string | null;
+  /** Null when the property has no active contract/tenant, or the tenant never informed it. */
+  residentCount: number | null;
+};
+
+/**
+ * For each property, looks up the tenant on its currently active (or
+ * expiring) contract and returns how many residents they declared. Used both
+ * to preview a "fair" rateio (weighted by headcount instead of split evenly)
+ * and to compute it server-side. Properties without an active contract, or
+ * whose tenant never informed a resident count, come back with
+ * `residentCount: null` — callers should treat that as 1 (i.e. don't let a
+ * missing number zero out that property's share).
+ */
+export async function getResidentInfoForProperties(
+  propertyIds: string[],
+): Promise<Map<string, PropertyResidentInfo>> {
+  const d1 = getD1();
+  const result = new Map<string, PropertyResidentInfo>();
+  if (propertyIds.length === 0) {
+    return result;
+  }
+
+  const placeholders = propertyIds.map(() => "?").join(", ");
+  const rows = await d1
+    .prepare(
+      `SELECT c.property_id as property_id, t.name as tenant_name, t.resident_count as resident_count
+       FROM contracts c
+       JOIN tenants t ON t.id = c.tenant_id
+       WHERE c.property_id IN (${placeholders}) AND c.status IN ('active', 'expiring')`,
+    )
+    .bind(...propertyIds)
+    .all<{ property_id: string; tenant_name: string; resident_count: number | null }>();
+
+  for (const row of rows.results) {
+    result.set(row.property_id, {
+      propertyId: row.property_id,
+      residentCount: row.resident_count ?? null,
+      tenantName: row.tenant_name,
+    });
+  }
+
+  for (const propertyId of propertyIds) {
+    if (!result.has(propertyId)) {
+      result.set(propertyId, { propertyId, residentCount: null, tenantName: null });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Splits `totalAmount` across `weights` (one non-negative number per key),
+ * proportionally. Rounds every share to cents and folds the rounding
+ * remainder into the last entry so the shares always add up exactly to
+ * `totalAmount`.
+ */
+function splitByWeights(
+  totalAmount: number,
+  weights: Array<{ key: string; weight: number }>,
+): Map<string, number> {
+  const totalWeight = weights.reduce((sum, item) => sum + item.weight, 0) || weights.length;
+  const shares = new Map<string, number>();
+  let allocated = 0;
+
+  weights.forEach((item, index) => {
+    const isLast = index === weights.length - 1;
+    if (isLast) {
+      shares.set(item.key, roundCents(totalAmount - allocated));
+      return;
+    }
+    const share = roundCents((totalAmount * item.weight) / totalWeight);
+    shares.set(item.key, share);
+    allocated += share;
+  });
+
+  return shares;
+}
+
 export async function ensureWaterBillTables(d1: D1Binding = getD1()) {
   await d1
     .prepare(
@@ -114,8 +197,9 @@ function roundCents(value: number): number {
 }
 
 /**
- * Creates a water bill rateio: splits `totalAmount` evenly across
- * `propertyIds` and applies each share to that property's contract charge
+ * Creates a water bill rateio: splits `totalAmount` across `propertyIds` —
+ * evenly, or weighted by each property's number of residents (see
+ * `splitMode`) — and applies each share to that property's contract charge
  * for `reference` (immediately if the charge already exists; otherwise the
  * share is left pending for `applyPendingWaterAllocations` to pick up once
  * the charge is generated).
@@ -124,10 +208,18 @@ export async function createWaterBillRateio(input: {
   reference: string;
   totalAmount: number;
   propertyIds: string[];
+  /** "equal" (default) splits the total evenly; "residents" weights each property's share by its tenant's resident count (properties with no count informed count as 1 resident). */
+  splitMode?: WaterBillSplitMode;
   invoiceBase64?: string;
   invoiceContentType?: string;
   invoiceFileName?: string;
-}): Promise<{ waterBillId: string; perPropertyAmount: number; appliedCount: number; pendingCount: number }> {
+}): Promise<{
+  waterBillId: string;
+  perPropertyAmount: number;
+  appliedCount: number;
+  pendingCount: number;
+  amountsByProperty: Record<string, number>;
+}> {
   const d1 = getD1();
   await ensureWaterBillTables(d1);
 
@@ -160,6 +252,19 @@ export async function createWaterBillRateio(input: {
     });
   }
 
+  const splitMode = input.splitMode ?? "equal";
+  let weights: Array<{ key: string; weight: number }>;
+  if (splitMode === "residents") {
+    const residentInfo = await getResidentInfoForProperties(uniquePropertyIds);
+    weights = uniquePropertyIds.map((propertyId) => ({
+      key: propertyId,
+      weight: residentInfo.get(propertyId)?.residentCount ?? 1,
+    }));
+  } else {
+    weights = uniquePropertyIds.map((propertyId) => ({ key: propertyId, weight: 1 }));
+  }
+
+  const amountsByProperty = Object.fromEntries(splitByWeights(input.totalAmount, weights));
   const perPropertyAmount = roundCents(input.totalAmount / uniquePropertyIds.length);
 
   await d1
@@ -184,7 +289,7 @@ export async function createWaterBillRateio(input: {
         `INSERT INTO water_bill_allocations (id, water_bill_id, property_id, amount, charge_id, applied_at)
          VALUES (?, ?, ?, ?, NULL, NULL)`,
       )
-      .bind(createId("wsh"), waterBillId, propertyId, perPropertyAmount)
+      .bind(createId("wsh"), waterBillId, propertyId, amountsByProperty[propertyId])
       .run();
   }
 
@@ -197,6 +302,7 @@ export async function createWaterBillRateio(input: {
   }
 
   return {
+    amountsByProperty,
     appliedCount,
     pendingCount: uniquePropertyIds.length - appliedCount,
     perPropertyAmount,

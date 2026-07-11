@@ -11,6 +11,7 @@ export async function POST(request: Request) {
       email: requiredString(payload.email, "email"),
       name: requiredString(payload.name, "name"),
       password: password || undefined,
+      residentCount: optionalPositiveInt(payload.residentCount),
       whatsapp: requiredString(payload.whatsapp, "whatsapp"),
     });
 
@@ -36,6 +37,7 @@ export async function PATCH(request: Request) {
       id: requiredString(payload.id, "id"),
       name: requiredString(payload.name, "name"),
       password: password || undefined,
+      residentCount: optionalPositiveInt(payload.residentCount),
       status,
       whatsapp: requiredString(payload.whatsapp, "whatsapp"),
     });
@@ -67,6 +69,17 @@ function requiredString(value: unknown, field: string) {
 
 function optionalString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function optionalPositiveInt(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+  return Math.round(parsed);
 }
 
 function errorStatus(error: unknown) {

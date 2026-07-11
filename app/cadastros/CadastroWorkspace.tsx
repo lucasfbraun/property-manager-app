@@ -176,6 +176,7 @@ export function CadastroWorkspace({
     const email = String(formData.get("email") ?? "").trim();
     const whatsapp = String(formData.get("whatsapp") ?? "").trim();
     const password = String(formData.get("password") ?? "").trim();
+    const residentCountRaw = String(formData.get("residentCount") ?? "").trim();
     if (!name || !document || !email || !whatsapp) {
       setMessage("Preencha todos os campos obrigatorios do inquilino.");
       return;
@@ -187,6 +188,7 @@ export function CadastroWorkspace({
         email,
         name,
         password: password || undefined,
+        residentCount: residentCountRaw ? Number(residentCountRaw) : undefined,
         whatsapp,
       });
       setMessage(
@@ -206,6 +208,7 @@ export function CadastroWorkspace({
     const whatsapp = String(formData.get("whatsapp") ?? "").trim();
     const status = String(formData.get("status") ?? "").trim();
     const password = String(formData.get("password") ?? "").trim();
+    const residentCountRaw = String(formData.get("residentCount") ?? "").trim();
 
     try {
       await sendAndRefresh("PATCH", "/api/tenants", {
@@ -214,6 +217,7 @@ export function CadastroWorkspace({
         id,
         name,
         password: password || undefined,
+        residentCount: residentCountRaw ? Number(residentCountRaw) : undefined,
         status,
         whatsapp,
       });
@@ -393,6 +397,12 @@ export function CadastroWorkspace({
           <Field label="E-mail" name="email" type="email" />
           <Field label="WhatsApp" name="whatsapp" />
           <Field
+            label="Quantidade de moradores"
+            name="residentCount"
+            required={false}
+            type="number"
+          />
+          <Field
             label="Senha de acesso ao portal (opcional)"
             name="password"
             required={false}
@@ -493,6 +503,15 @@ export function CadastroWorkspace({
                 type="email"
               />
               <Field defaultValue={tenant.whatsapp} label="WhatsApp" name="whatsapp" />
+              <Field
+                defaultValue={
+                  tenant.residentCount != null ? String(tenant.residentCount) : undefined
+                }
+                label="Quantidade de moradores"
+                name="residentCount"
+                required={false}
+                type="number"
+              />
               <Select
                 defaultValue={tenant.status}
                 label="Status"
@@ -507,7 +526,11 @@ export function CadastroWorkspace({
               />
             </EditForm>
           )}
-          renderSubtitle={(tenant) => `${tenant.email} - ${tenant.whatsapp}`}
+          renderSubtitle={(tenant) =>
+            `${tenant.email} - ${tenant.whatsapp}${
+              tenant.residentCount != null ? ` - ${tenant.residentCount} morador(es)` : ""
+            }`
+          }
           renderTitle={(tenant) => tenant.name}
           title="Inquilinos"
         />

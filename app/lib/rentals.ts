@@ -54,6 +54,8 @@ export type Tenant = {
   email: string;
   whatsapp: string;
   status: PersonStatus;
+  /** Number of people living at the property, used to split water bills fairly. Null when not informed. */
+  residentCount: number | null;
 };
 
 export type Property = {
@@ -150,6 +152,7 @@ export const tenants: Tenant[] = [
     email: "marina@example.com",
     whatsapp: "+55 11 99999-0001",
     status: "Ativo",
+    residentCount: 2,
   },
   {
     id: "ten-rafael",
@@ -158,6 +161,7 @@ export const tenants: Tenant[] = [
     email: "rafael@example.com",
     whatsapp: "+55 11 99999-0002",
     status: "Inadimplente",
+    residentCount: 3,
   },
   {
     id: "ten-carlos",
@@ -166,6 +170,7 @@ export const tenants: Tenant[] = [
     email: "carlos@example.com",
     whatsapp: "+55 11 99999-0003",
     status: "Ativo",
+    residentCount: 1,
   },
 ];
 

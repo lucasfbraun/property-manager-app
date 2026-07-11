@@ -1,6 +1,6 @@
-import { requireApiUser, UnauthorizedError } from "../../../lib/session";
-import { createWaterBillRateio, listWaterBills } from "../../../lib/water-bills";
-import { ensureRentalDatabase } from "../../../lib/rental-repository";
+import { requireApiUser, UnauthorizedError } from "../../lib/session";
+import { createWaterBillRateio, listWaterBills } from "../../lib/water-bills";
+import { ensureRentalDatabase } from "../../lib/rental-repository";
 
 export async function GET() {
   try {
@@ -23,6 +23,7 @@ export async function POST(request: Request) {
     const propertyIds = Array.isArray(payload.propertyIds)
       ? payload.propertyIds.filter((value): value is string => typeof value === "string")
       : [];
+    const splitMode = payload.splitMode === "residents" ? "residents" : "equal";
 
     const result = await createWaterBillRateio({
       invoiceBase64: optionalString(payload.invoiceBase64),
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
       invoiceFileName: optionalString(payload.invoiceFileName),
       propertyIds,
       reference,
+      splitMode,
       totalAmount,
     });
 

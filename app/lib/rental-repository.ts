@@ -29,6 +29,7 @@ type TenantRow = {
   email: string;
   whatsapp: string;
   status: "active" | "inactive" | "delinquent" | "former";
+  resident_count: number | null;
 };
 
 type PropertyRow = {
@@ -132,6 +133,8 @@ export async function createTenant(input: {
   document: string;
   email: string;
   whatsapp: string;
+  /** Number of people living at the property, used to split water bills fairly. */
+  residentCount?: number | null;
   /** Optional: when provided, creates a login account for the tenant portal. */
   password?: string;
 }) {
@@ -147,9 +150,18 @@ export async function createTenant(input: {
 
   await d1
     .prepare(
-      "INSERT INTO tenants (id, user_id, name, document, email, whatsapp, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO tenants (id, user_id, name, document, email, whatsapp, status, resident_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
-    .bind(id, userId, input.name, input.document, input.email, input.whatsapp, "active")
+    .bind(
+      id,
+      userId,
+      input.name,
+      input.document,
+      input.email,
+      input.whatsapp,
+      "active",
+      input.residentCount ?? null,
+    )
     .run();
 
   return id;
@@ -162,6 +174,8 @@ export async function updateTenant(input: {
   email: string;
   whatsapp: string;
   status: "Ativo" | "Inadimplente" | "Inativo";
+  /** Number of people living at the property, used to split water bills fairly. */
+  residentCount?: number | null;
   /** Optional: sets/resets the login password for the tenant portal. */
   password?: string;
 }) {
@@ -176,9 +190,17 @@ export async function updateTenant(input: {
 
   await d1
     .prepare(
-      "UPDATE tenants SET name = ?, document = ?, email = ?, whatsapp = ?, status = ? WHERE id = ?",
+      "UPDATE tenants SET name = ?, document = ?, email = ?, whatsapp = ?, status = ?, resident_count = ? WHERE id = ?",
     )
-    .bind(input.name, input.document, input.email, input.whatsapp, statusValue, input.id)
+    .bind(
+      input.name,
+      input.document,
+      input.email,
+      input.whatsapp,
+      statusValue,
+      input.residentCount ?? null,
+      input.id,
+    )
     .run();
 
   if (input.password) {
@@ -485,6 +507,8 @@ export async function ensureRentalDatabase(d1: D1Binding = getD1()) {
   await ensureColumn(d1, "charges", "pix_expires_at", "pix_expires_at text");
   // Portion of a charge that came from a water bill rateio (app/lib/water-bills.ts).
   await ensureColumn(d1, "charges", "water_amount", "water_amount real");
+  // Number of people living at the property, used to split water bills fairly (app/lib/water-bills.ts).
+  await ensureColumn(d1, "tenants", "resident_count", "resident_count integer");
 
   await ensureContractDocumentTables(d1);
   await ensureInspectionTables(d1);
@@ -656,7 +680,7 @@ async function seedIfEmpty(d1: D1Binding) {
     ...tenants.map((tenant) =>
       d1
         .prepare(
-          "INSERT INTO tenants (id, name, document, email, whatsapp, status) VALUES (?, ?, ?, ?, ?, ?)",
+          "INSERT INTO tenants (id, name, document, email, whatsapp, status, resident_count) VALUES (?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(
           tenant.id,
@@ -665,6 +689,7 @@ async function seedIfEmpty(d1: D1Binding) {
           tenant.email,
           tenant.whatsapp,
           tenant.status === "Inadimplente" ? "delinquent" : "active",
+          tenant.residentCount ?? null,
         ),
     ),
     ...properties.map((property) =>
@@ -734,6 +759,7 @@ function mapTenant(row: TenantRow): Tenant {
     email: row.email,
     id: row.id,
     name: row.name,
+    residentCount: row.resident_count ?? null,
     status:
       row.status === "delinquent"
         ? "Inadimplente"

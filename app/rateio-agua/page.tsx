@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getRentalData } from "../lib/rental-repository";
-import { listWaterBills } from "../lib/water-bills";
+import { listWaterBills, getResidentInfoForProperties } from "../lib/water-bills";
 import { requireUser } from "../lib/session";
 import { LogoutButton } from "../components/LogoutButton";
 import { ThemeToggle } from "../components/ThemeToggle";
@@ -11,6 +11,14 @@ export const dynamic = "force-dynamic";
 export default async function WaterBillPage() {
   await requireUser(["admin"]);
   const [rentalData, waterBills] = await Promise.all([getRentalData(), listWaterBills()]);
+  const residentInfo = await getResidentInfoForProperties(
+    rentalData.properties.map((property) => property.id),
+  );
+  const propertiesWithResidents = rentalData.properties.map((property) => ({
+    ...property,
+    residentCount: residentInfo.get(property.id)?.residentCount ?? null,
+    tenantName: residentInfo.get(property.id)?.tenantName ?? null,
+  }));
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] px-4 py-5 text-[#0F172A] dark:bg-transparent dark:text-slate-100 sm:px-6 lg:px-8">
@@ -36,7 +44,7 @@ export default async function WaterBillPage() {
         </header>
 
         <WaterBillWorkspace
-          initialProperties={rentalData.properties}
+          initialProperties={propertiesWithResidents}
           initialWaterBills={waterBills}
         />
       </div>
