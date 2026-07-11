@@ -174,7 +174,7 @@ export function InspectionPhotosManager({ contractId }: { contractId: string }) 
                 src={`/api/contracts/inspection-photos?photoId=${encodeURIComponent(photo.id)}`}
               />
               <button
-                className="absolute right-1 top-1 rounded-md bg-rose-600/90 px-2 py-1 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100"
+                className="absolute right-1 top-1 rounded-md bg-rose-600/90 px-2 py-1 text-[10px] font-semibold text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
                 disabled={isUploading}
                 onClick={() => handleDelete(photo.id)}
                 type="button"
