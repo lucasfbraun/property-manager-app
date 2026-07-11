@@ -131,6 +131,37 @@ export function CadastroWorkspace({
     }
   }
 
+  async function syncPayment(contractId: string) {
+    setIsSaving(true);
+    try {
+      const response = await fetch("/api/charges/sync-payment", {
+        body: JSON.stringify({ contractId }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        status?: string;
+        updated?: boolean;
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(result.error ?? "Falha ao verificar pagamento.");
+      }
+      if (result.status === "already_paid") {
+        setMessage("Essa cobranca ja estava marcada como paga.");
+      } else if (result.updated) {
+        setMessage("Pagamento confirmado na Mercado Pago! Cobranca marcada como paga.");
+      } else {
+        setMessage(`Pagamento ainda nao aprovado na Mercado Pago (status: ${result.status}).`);
+      }
+      await refreshData();
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function addTenant(formData: FormData) {
     const name = String(formData.get("name") ?? "").trim();
     const document = String(formData.get("document") ?? "").trim();
@@ -633,6 +664,14 @@ export function CadastroWorkspace({
                             type="button"
                           >
                             Gerar cobranca
+                          </button>
+                          <button
+                            className="rounded-md border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-500/30 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+                            disabled={isSaving}
+                            onClick={() => syncPayment(contract.id)}
+                            type="button"
+                          >
+                            Verificar pagamento
                           </button>
                           <button
                             className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"

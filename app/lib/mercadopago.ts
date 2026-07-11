@@ -466,6 +466,59 @@ export async function fetchPaymentDetails(paymentId: string): Promise<{
   };
 }
 
+/**
+ * Manual fallback for when the Mercado Pago webhook doesn't arrive (e.g. the
+ * production webhook wasn't configured yet when the payment was made): looks
+ * up the payment directly and reconciles the charge, reusing the same
+ * idempotent recording logic the webhook uses.
+ */
+export async function syncChargePayment(chargeId: string): Promise<{
+  status: string;
+  updated: boolean;
+}> {
+  const d1 = getD1();
+  const row = await d1
+    .prepare("SELECT mercado_pago_payment_id, status FROM charges WHERE id = ?")
+    .bind(chargeId)
+    .first<{ mercado_pago_payment_id: string | null; status: string }>();
+
+  if (!row?.mercado_pago_payment_id) {
+    throw new Error("Essa cobranca ainda nao tem um pagamento Pix gerado.");
+  }
+
+  if (row.status === "paid") {
+    return { status: "already_paid", updated: false };
+  }
+
+  const payment = await fetchPaymentDetails(row.mercado_pago_payment_id);
+  if (payment.status !== "approved" || !payment.externalReference) {
+    return { status: payment.status, updated: false };
+  }
+
+  const isNew = await recordApprovedPayment({
+    amountPaid: payment.transactionAmount,
+    chargeId: payment.externalReference,
+    externalId: row.mercado_pago_payment_id,
+    fees: payment.feeAmount,
+    netAmount: payment.netReceivedAmount,
+    paidAt: payment.dateApproved ?? new Date().toISOString(),
+  });
+
+  return { status: "approved", updated: isNew };
+}
+
+/** Most recent charge for a contract, used by the admin "sync payment" action. */
+export async function getLatestChargeIdForContract(contractId: string): Promise<string | null> {
+  const d1 = getD1();
+  const row = await d1
+    .prepare(
+      "SELECT id FROM charges WHERE contract_id = ? ORDER BY due_date DESC LIMIT 1",
+    )
+    .bind(contractId)
+    .first<{ id: string }>();
+  return row?.id ?? null;
+}
+
 export async function getChargeTenantId(chargeId: string): Promise<string | null> {
   const d1 = getD1();
   const row = await d1
