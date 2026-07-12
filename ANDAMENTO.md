@@ -110,6 +110,8 @@ Feature nova (11/07/2026, generalizada no mesmo dia), pensada para o cenario de 
 
 Implementacao em `app/lib/rateios.ts` (tabelas `rateios` e `rateio_allocations`); rota `app/api/rateios`.
 
+**Edicao e exclusao (adicionado em 12/07/2026):** cada rateio ganhou botoes "Editar" e "Excluir" para corrigir erros operacionais. `updateRateio()`/`deleteRateio()` (`app/lib/rateios.ts`) reaproveitam a mesma logica de calculo/aplicacao de `createRateio` (extraida para `computeAndInsertAllocations`): revertem primeiro o valor que a versao antiga do rateio ja tinha somado em cobrancas em aberto (`reverseAppliedAllocations`), apagam as alocacoes antigas e recalculam do zero com os dados corrigidos (ou nao recriam nada, no caso de exclusao). Nova coluna `rateios.split_mode` guarda se o rateio foi dividido igualmente ou proporcional a moradores, para que editar preencha o formulario com o modo original em vez de assumir um padrao. Guarda de seguranca: **editar ou excluir e bloqueado se qualquer imovel do rateio ja tiver cobranca paga** (`assertNoLinkedPaidCharge`), para nao alterar silenciosamente um valor que o inquilino ja pagou — nesse caso o admin precisa ajustar a cobranca manualmente. Rotas `PATCH`/`DELETE` adicionadas em `app/api/rateios/route.ts`.
+
 ## 9b. Chat de ajuda do painel admin
 
 Feature nova (12/07/2026): botao "?" flutuante, presente so nas telas do admin (Dashboard, Cadastros, Contratos, Rateios, Integracoes) — **nao aparece no portal do inquilino nem no do recebedor**.
@@ -183,3 +185,4 @@ Toda a implementacao inicial do projeto foi entregue em um unico dia (05/07/2026
 | 12/07/2026 | — | Registro de ocorrencia disponivel direto na pagina inicial do portal do inquilino (antes so existia dentro da pagina de um contrato) |
 | 12/07/2026 | — | Cadastro de proprietarios (admin-only, sem login), vinculado a imoveis (1 imovel = 1 proprietario, 1 proprietario pode ter varios imoveis) |
 | 12/07/2026 | — | Testemunhas no cadastro de contrato + ordem de assinatura (proprietario e testemunhas assinam antes; inquilino sempre assina por ultimo) |
+| 12/07/2026 | — | Edicao e exclusao de rateios (com reversao automatica do valor aplicado nas cobrancas, bloqueado se ja houver cobranca paga) |

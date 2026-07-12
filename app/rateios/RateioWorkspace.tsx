@@ -39,6 +39,7 @@ type Rateio = {
   invoiceFileName: string | null;
   createdAt: string;
   allocations: RateioAllocation[];
+  splitMode: SplitMode;
 };
 
 const ACCEPTED_INVOICE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
@@ -59,6 +60,36 @@ function formatMonthReference(monthValue: string): string {
   );
   const capitalized = monthName.charAt(0).toUpperCase() + monthName.slice(1);
   return `${capitalized}/${year}`;
+}
+
+const PT_MONTH_NAMES = [
+  "janeiro",
+  "fevereiro",
+  "marco",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+];
+
+/** Inverse of formatMonthReference: "Julho/2026" -> "2026-07", so editing a rateio can pre-fill the month input. Returns "" if it can't be parsed (e.g. an old free-text reference). */
+function parseMonthReference(reference: string): string {
+  const match = reference.match(/^([A-Za-zÀ-ÿ]+)\/(\d{4})$/);
+  if (!match) {
+    return "";
+  }
+  const combiningDiacritics = new RegExp("[̀-ͯ]", "g");
+  const normalized = match[1].toLowerCase().normalize("NFD").replace(combiningDiacritics, "");
+  const index = PT_MONTH_NAMES.indexOf(normalized);
+  if (index === -1) {
+    return "";
+  }
+  return `${match[2]}-${String(index + 1).padStart(2, "0")}`;
 }
 
 /**
@@ -96,6 +127,8 @@ export function RateioWorkspace({
   initialRateios: Rateio[];
 }) {
   const [rateios, setRateios] = useState<Rateio[]>(initialRateios);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [existingInvoiceFileName, setExistingInvoiceFileName] = useState<string | null>(null);
   const [category, setCategory] = useState("agua");
   const [description, setDescription] = useState("");
   const [month, setMonth] = useState("");
@@ -112,6 +145,67 @@ export function RateioWorkspace({
         ? current.filter((id) => id !== propertyId)
         : [...current, propertyId],
     );
+  }
+
+  function resetForm() {
+    setEditingId(null);
+    setExistingInvoiceFileName(null);
+    setCategory("agua");
+    setDescription("");
+    setMonth("");
+    setTotalAmount("");
+    setSelectedPropertyIds([]);
+    setSplitMode("residents");
+    setInvoiceFile(null);
+  }
+
+  /** Loads an existing rateio into the form above (shared with "Novo rateio") so it can be corrected in place. */
+  function startEdit(rateio: Rateio) {
+    setEditingId(rateio.id);
+    setExistingInvoiceFileName(rateio.invoiceFileName);
+    setCategory(rateio.category);
+    setDescription(rateio.description ?? "");
+    setMonth(parseMonthReference(rateio.reference));
+    setTotalAmount(String(rateio.totalAmount));
+    setSelectedPropertyIds(rateio.allocations.map((allocation) => allocation.propertyId));
+    setSplitMode(rateio.splitMode);
+    setInvoiceFile(null);
+    setMessage(null);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ behavior: "smooth", top: 0 });
+    }
+  }
+
+  async function removeRateio(rateio: Rateio) {
+    const confirmed = window.confirm(
+      `Excluir o rateio de ${categoryLabel(rateio.category)} (${rateio.reference})? Isso reverte o valor ja aplicado nas cobrancas em aberto.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setIsSaving(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/rateios", {
+        body: JSON.stringify({ id: rateio.id }),
+        headers: { "Content-Type": "application/json" },
+        method: "DELETE",
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(result.error ?? "Falha ao excluir o rateio.");
+      }
+      setMessage("Rateio excluido.");
+      if (editingId === rateio.id) {
+        resetForm();
+      }
+      await refreshRateios();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Erro inesperado.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   const selectedProperties = initialProperties.filter((property) =>
@@ -158,11 +252,13 @@ export function RateioWorkspace({
     setIsSaving(true);
     try {
       const invoiceBase64 = invoiceFile ? await fileToBase64(invoiceFile) : undefined;
+      const isEditing = Boolean(editingId);
 
       const response = await fetch("/api/rateios", {
         body: JSON.stringify({
           category,
           description: description || undefined,
+          id: editingId ?? undefined,
           invoiceBase64,
           invoiceContentType: invoiceFile?.type,
           invoiceFileName: invoiceFile?.name,
@@ -172,7 +268,7 @@ export function RateioWorkspace({
           totalAmount: amount,
         }),
         headers: { "Content-Type": "application/json" },
-        method: "POST",
+        method: isEditing ? "PATCH" : "POST",
       });
       const result = (await response.json()) as {
         perPropertyAmount?: number;
@@ -182,7 +278,9 @@ export function RateioWorkspace({
         error?: string;
       };
       if (!response.ok) {
-        throw new Error(result.error ?? "Falha ao registrar o rateio.");
+        throw new Error(
+          result.error ?? (isEditing ? "Falha ao salvar as alteracoes do rateio." : "Falha ao registrar o rateio."),
+        );
       }
 
       const breakdown = result.amountsByProperty
@@ -192,15 +290,12 @@ export function RateioWorkspace({
         : "";
 
       setMessage(
-        `Rateio de ${categoryLabel(category)} registrado (${splitMode === "residents" ? "proporcional a moradores" : "igual entre imoveis"}). ` +
+        `Rateio de ${categoryLabel(category)} ${isEditing ? "atualizado" : "registrado"} (${splitMode === "residents" ? "proporcional a moradores" : "igual entre imoveis"}). ` +
           (breakdown ? `${breakdown}. ` : "") +
           `${result.appliedCount ?? 0} cobranca(s) atualizada(s) na hora` +
           (result.pendingCount ? `, ${result.pendingCount} pendente(s) ate a cobranca ser gerada.` : "."),
       );
-      setTotalAmount("");
-      setDescription("");
-      setSelectedPropertyIds([]);
-      setInvoiceFile(null);
+      resetForm();
       await refreshRateios();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Erro inesperado.");
@@ -212,12 +307,18 @@ export function RateioWorkspace({
   return (
     <div className="space-y-5">
       <section className="surface-card p-4">
-        <h2 className="font-semibold">Novo rateio</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold">{editingId ? "Editar rateio" : "Novo rateio"}</h2>
+          {editingId ? (
+            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30">
+              Corrigindo rateio existente
+            </span>
+          ) : null}
+        </div>
         <p className="mt-1 text-sm text-neutral-600 dark:text-slate-400">
-          Escolha a categoria da despesa, o valor total e os imoveis
-          participantes. O valor e dividido entre eles (igualmente ou
-          proporcional ao numero de moradores) e somado na cobranca do mes de
-          cada um.
+          {editingId
+            ? "Ajuste os campos necessarios e salve. O valor ja aplicado nas cobrancas em aberto e recalculado automaticamente."
+            : "Escolha a categoria da despesa, o valor total e os imoveis participantes. O valor e dividido entre eles (igualmente ou proporcional ao numero de moradores) e somado na cobranca do mes de cada um."}
         </p>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -374,6 +475,12 @@ export function RateioWorkspace({
           <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
             Comprovante (opcional)
           </span>
+          {existingInvoiceFileName && !invoiceFile ? (
+            <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">
+              Comprovante atual: {existingInvoiceFileName}. Anexe um novo arquivo abaixo para
+              substitui-lo, ou deixe em branco para manter o atual.
+            </p>
+          ) : null}
           <label className="btn-secondary inline-flex cursor-pointer">
             {invoiceFile ? invoiceFile.name : "Anexar comprovante (JPG, PNG ou PDF)"}
             <input
@@ -389,14 +496,33 @@ export function RateioWorkspace({
           <p className="mt-3 text-sm text-neutral-700 dark:text-slate-300">{message}</p>
         ) : null}
 
-        <button
-          className="btn-primary mt-4"
-          disabled={isSaving}
-          onClick={submitRateio}
-          type="button"
-        >
-          {isSaving ? "Registrando..." : "Registrar rateio"}
-        </button>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            className="btn-primary"
+            disabled={isSaving}
+            onClick={submitRateio}
+            type="button"
+          >
+            {isSaving
+              ? "Salvando..."
+              : editingId
+                ? "Salvar alteracoes"
+                : "Registrar rateio"}
+          </button>
+          {editingId ? (
+            <button
+              className="btn-secondary"
+              disabled={isSaving}
+              onClick={() => {
+                resetForm();
+                setMessage(null);
+              }}
+              type="button"
+            >
+              Cancelar edicao
+            </button>
+          ) : null}
+        </div>
       </section>
 
       <section className="surface-card p-4">
@@ -450,6 +576,24 @@ export function RateioWorkspace({
                       </p>
                     </div>
                   ))}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200 pt-3 dark:border-white/10">
+                  <button
+                    className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
+                    disabled={isSaving}
+                    onClick={() => startEdit(rateio)}
+                    type="button"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    className="rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                    disabled={isSaving}
+                    onClick={() => removeRateio(rateio)}
+                    type="button"
+                  >
+                    Excluir
+                  </button>
                 </div>
               </div>
             ))}

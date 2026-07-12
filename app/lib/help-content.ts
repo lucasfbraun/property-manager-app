@@ -138,6 +138,13 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     answer:
+      "Cada rateio listado em /rateios tem botoes 'Editar' e 'Excluir', para corrigir erros operacionais (categoria errada, valor errado, imovel esquecido, etc.). 'Editar' preenche o formulario do topo com os dados daquele rateio para ajustar e salvar; tanto editar quanto excluir revertem automaticamente o valor ja somado nas cobrancas em aberto antes de aplicar a correcao. Por seguranca, isso so e permitido enquanto a cobranca correspondente ainda nao foi paga — se algum imovel do rateio ja tiver cobranca paga, o sistema bloqueia e pede para ajustar a cobranca manualmente.",
+    id: "editar-excluir-rateio",
+    keywords: ["editar rateio", "excluir rateio", "corrigir rateio", "apagar rateio", "erro no rateio", "cancelar rateio"],
+    title: "Como editar ou excluir um rateio ja registrado?",
+  },
+  {
+    answer:
       "A tela inicial (Dashboard) mostra os totais previstos, recebidos, em aberto e em atraso no periodo, os recebimentos por recebedor, os contratos ativos e a lista de inquilinos — e uma visao geral rapida do fluxo de caixa.",
     id: "dashboard",
     keywords: ["dashboard", "painel inicial", "resumo", "relatorio", "totais", "visao geral"],

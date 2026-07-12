@@ -1,6 +1,6 @@
 # Manual do Painel Admin — Gestao de Alugueis
 
-Ultima atualizacao: 12/07/2026 (cadastro de proprietarios, testemunhas e ordem de assinatura adicionados)
+Ultima atualizacao: 12/07/2026 (cadastro de proprietarios, testemunhas, ordem de assinatura e edicao/exclusao de rateios adicionados)
 
 Este documento explica, de forma objetiva, como usar cada funcionalidade do painel administrativo. Ele tambem serve de base para o chat de ajuda ("?") disponivel dentro do proprio painel admin (o chat busca a resposta mais proxima aqui dentro — nao usa IA externa nem acessa dados de inquilinos, contratos ou pagamentos).
 
@@ -99,6 +99,8 @@ Depois que uma cobranca esta paga, o inquilino ve um link "Gerar recibo de pagam
 ## 16. Rateios entre imoveis (despesas compartilhadas)
 
 Tela `/rateios`: divida qualquer despesa compartilhada (agua, condominio, gas, internet, IPTU ou outra categoria) entre os imoveis selecionados. Escolha a categoria, uma descricao opcional, o mes de referencia, o valor total e os imoveis participantes; anexe o comprovante se quiser (JPG/PNG/PDF, ate 8MB). O valor pode ser dividido **igualmente** entre os imoveis ou **proporcional ao numero de moradores** de cada um (informado no cadastro do inquilino) — a tela mostra uma pre-visualizacao antes de confirmar. O valor de cada imovel e somado a cobranca do mes correspondente (na hora, se a cobranca ja existir, ou automaticamente quando ela for gerada depois).
+
+Cada rateio listado tem botoes **"Editar"** e **"Excluir"**, para corrigir erros operacionais (categoria errada, valor errado, imovel esquecido, etc.). Ao clicar "Editar", os dados do rateio preenchem o formulario no topo da tela (com aviso "Corrigindo rateio existente"); ajuste o que for preciso e clique em "Salvar alteracoes", ou "Cancelar edicao" para desistir. Editar ou excluir um rateio **reverte automaticamente** o valor que ja tinha sido somado nas cobrancas em aberto, antes de aplicar o valor corrigido (ou de nao aplicar nada, no caso de exclusao). Por seguranca, essa correcao **so e permitida enquanto a cobranca correspondente ainda nao foi paga** — se algum imovel do rateio ja estiver com a cobranca paga, o sistema bloqueia a edicao/exclusao e pede para ajustar a cobranca manualmente.
 
 ## 17. Dashboard
 
