@@ -41,7 +41,7 @@ export default async function Home() {
   return (
     <main className="min-h-screen bg-[#F8FAFC] text-[#0F172A] dark:bg-transparent dark:text-slate-100">
       <div className="flex min-h-screen">
-        <aside className="hidden w-72 border-r border-slate-200 bg-[#0F172A] px-4 py-5 text-white dark:border-white/10 dark:bg-slate-950/40 dark:backdrop-blur-xl lg:block">
+        <aside className="sticky top-0 hidden h-screen w-72 shrink-0 self-start overflow-y-auto border-r border-slate-200 bg-[#0F172A] px-4 py-5 text-white dark:border-white/10 dark:bg-slate-950/40 dark:backdrop-blur-xl lg:block">
           <div className="rounded-lg border border-white/10 bg-white/5 p-4">
             <p className="text-xs font-semibold uppercase text-blue-200">
               Controle patrimonial
