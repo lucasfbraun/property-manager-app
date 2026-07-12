@@ -6,6 +6,7 @@ import {
 } from "../../../lib/mercadopago";
 import { ensureRentalDatabase } from "../../../lib/rental-repository";
 import { sendEmail } from "../../../lib/email";
+import { sendPaymentConfirmedReminder } from "../../../lib/reminders";
 
 /**
  * Public webhook (Mercado Pago servers call this, no session/cookie
@@ -73,6 +74,12 @@ export async function POST(request: Request) {
         }
       } catch (emailError) {
         console.error("[webhook mercadopago] falha ao notificar por e-mail:", emailError);
+      }
+
+      try {
+        await sendPaymentConfirmedReminder(chargeId);
+      } catch (whatsappError) {
+        console.error("[webhook mercadopago] falha ao notificar por whatsapp:", whatsappError);
       }
     }
 

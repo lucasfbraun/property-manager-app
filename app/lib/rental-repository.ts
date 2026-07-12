@@ -509,6 +509,14 @@ export async function ensureRentalDatabase(d1: D1Binding = getD1()) {
   await ensureColumn(d1, "charges", "rateio_amount", "rateio_amount real");
   // Number of people living at the property, used to split rateios fairly (app/lib/rateios.ts).
   await ensureColumn(d1, "tenants", "resident_count", "resident_count integer");
+  // Tracks the last automatic WhatsApp reminder sent for a charge, so the daily
+  // sweep (app/lib/reminders.ts) doesn't re-send the same event every run.
+  await ensureColumn(d1, "charges", "last_reminder_event", "last_reminder_event text");
+  await ensureColumn(d1, "charges", "last_reminder_sent_at", "last_reminder_sent_at text");
+  // Marks that the "contrato vencendo" WhatsApp reminder was already sent once
+  // for this contract (set to "Vence em breve"), so it isn't repeated on
+  // every unrelated edit while the status stays the same.
+  await ensureColumn(d1, "contracts", "expiring_reminder_sent_at", "expiring_reminder_sent_at text");
 
   await ensureContractDocumentTables(d1);
   await ensureInspectionTables(d1);

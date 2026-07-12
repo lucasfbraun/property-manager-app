@@ -2,6 +2,7 @@
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import { runMonthlyChargeSweep } from "../app/lib/charge-scheduler";
+import { runReminderSweep } from "../app/lib/reminders";
 
 interface Env {
   ASSETS: Fetcher;
@@ -54,7 +55,9 @@ const worker = {
   /**
    * Daily Cron Trigger (see wrangler.jsonc `triggers.crons`): generates the
    * current billing cycle's charge for every active/expiring contract once
-   * it's within the lead window before the due date.
+   * it's within the lead window before the due date, then sends any
+   * WhatsApp reminders (antes do vencimento / no dia / atraso) that are due
+   * for that cycle via WAHA.
    */
   async scheduled(_controller: ScheduledController, _env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(
@@ -64,6 +67,15 @@ const worker = {
         })
         .catch((error) => {
           console.error("[cron] falha ao gerar cobrancas mensais:", error);
+        })
+        .then(() => runReminderSweep())
+        .then((result) => {
+          console.log(
+            `[cron] lembretes whatsapp: enviados ${result.sent}, ignorados ${result.skipped}, falhas ${result.failed}`,
+          );
+        })
+        .catch((error) => {
+          console.error("[cron] falha ao rodar sweep de lembretes whatsapp:", error);
         }),
     );
   },

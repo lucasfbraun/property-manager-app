@@ -1,5 +1,6 @@
 import { requireApiUser, UnauthorizedError } from "../../lib/session";
 import { createContract, deleteContract, updateContract } from "../../lib/rental-repository";
+import { sendContractExpiringReminder } from "../../lib/reminders";
 
 export async function POST(request: Request) {
   try {
@@ -50,16 +51,25 @@ export async function PATCH(request: Request) {
     );
     const graceDays = requiredNumber(payload.graceDays, "graceDays", { allowZero: true });
 
+    const contractId = requiredString(payload.id, "id");
     await updateContract({
       dueDay,
       endsAt: requiredString(payload.endsAt, "endsAt"),
       fineRate,
       graceDays,
-      id: requiredString(payload.id, "id"),
+      id: contractId,
       monthlyInterestRate,
       monthlyRent,
       status,
     });
+
+    if (status === "Vence em breve") {
+      try {
+        await sendContractExpiringReminder(contractId);
+      } catch (whatsappError) {
+        console.error("[contracts] falha ao notificar contrato vencendo por whatsapp:", whatsappError);
+      }
+    }
 
     return Response.json({ ok: true });
   } catch (error) {

@@ -39,13 +39,13 @@ export default async function IntegracoesPage() {
               Integracoes
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-              Configuracao planejada para WhatsApp: Cron Trigger da Cloudflare
-              chamando o WAHA diretamente, sem orquestrador no meio.
+              WhatsApp via WAHA (self-hosted na AWS): Cron Trigger da Cloudflare
+              chama o WAHA diretamente, sem orquestrador no meio.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-fit rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-              Implementacao real pendente de credenciais
+            <div className="w-fit rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+              Envio real ativo (WAHA + Cron Trigger)
             </div>
             <ThemeToggle />
             <LogoutButton />

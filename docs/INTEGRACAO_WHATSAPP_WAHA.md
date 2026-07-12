@@ -50,16 +50,17 @@ a arquitetura (e so um numero de configuracao).
 
 ### Evitando duplicidade
 
-Como o cron roda 1x por dia mas pode ser reexecutado manualmente (teste,
-retry apos falha), o disparo precisa checar se aquele evento especifico ja
-foi enviado antes de mandar de novo. Para isso, cada envio bem-sucedido deve
-ficar registrado (tabela `reminders` do schema, hoje modelada mas nunca
-criada em runtime — precisa ser provisionada em `ensureRentalDatabase`, no
-mesmo padrao aditivo das demais tabelas) com `charge_id + event + data do
-envio`. Antes de enviar, a rotina verifica se ja existe um registro para
-aquele `charge_id + event` dentro da janela esperada (mesmo dia para
-`before_due`/`due_day`/`payment_confirmed`; dentro dos ultimos 3 dias para
-`after_due`) e pula o envio se ja existir.
+Implementado de forma mais simples do que o rascunho original previa: em vez
+de uma tabela `reminders` separada com historico completo, `charges` ganhou
+duas colunas aditivas (`last_reminder_event`, `last_reminder_sent_at`,
+provisionadas em `ensureRentalDatabase`). Antes de enviar, o sweep
+(`runReminderSweep` em `app/lib/reminders.ts`) compara o evento desejado com
+`last_reminder_event`: se for igual e nao for `after_due`, pula (ja foi
+enviado); se for `after_due`, so pula se `last_reminder_sent_at` for mais
+recente que `AFTER_DUE_RESEND_DAYS` (3 dias). Guarda so o ultimo evento/data,
+nao um historico completo de todos os envios — suficiente para evitar
+duplicidade, mas sem auditoria de envios passados (poderia virar uma tabela
+`reminders` completa depois, se for necessario auditar).
 
 ## Variaveis de ambiente
 
@@ -78,8 +79,13 @@ Endpoint WAHA:
 
 ```http
 POST /api/sendText
-Authorization: Bearer <WAHA_API_KEY>
+X-Api-Key: <WAHA_API_KEY>
 ```
+
+(Confirmado contra a instancia real do WAHA rodando na AWS: o header correto
+e' `X-Api-Key`, nao `Authorization: Bearer` como rascunhado originalmente
+aqui — a doc oficial do WAHA usa `X-Api-Key` para autenticar as rotas
+`/api/...`.)
 
 Body:
 
@@ -114,14 +120,30 @@ em `app/lib/integrations.ts` para isso). Exemplo: `+55 11 99999-0002` vira
 
 ## Status
 
-Planejado e documentado; o envio real ainda depende de:
+Implementado e ativo (12/07/2026):
 
-- Implementar `runWhatsAppReminderSweep()` (ou nome equivalente) e ligar a um
-  Cron Trigger em `wrangler.jsonc`.
-- Substituir o stub `sendPaymentReminder()` em `app/lib/integrations.ts`, que
-  hoje so lanca erro "Integracao WhatsApp pendente".
-- Configurar os secrets `WAHA_BASE_URL`, `WAHA_API_KEY`, `WAHA_SESSION` no
-  ambiente Cloudflare Workers.
+- WAHA rodando self-hosted numa instancia AWS Lightsail (Ubuntu + Docker),
+  sem HTTPS por decisao explicita (ver `WAHA-DEPLOY.md` para o guia completo
+  e o risco aceito de trafego em texto puro entre a Cloudflare e a AWS).
+- `sendPaymentReminder()` em `app/lib/integrations.ts` chama de fato o WAHA
+  (`POST {WAHA_BASE_URL}/api/sendText`, header `X-Api-Key`).
+- `runReminderSweep()` em `app/lib/reminders.ts` roda dentro do `scheduled()`
+  do Worker (`worker/index.ts`), logo apos `runMonthlyChargeSweep()`, todo dia.
+- Botao manual "Enviar lembrete WhatsApp" em Cadastros (`/api/charges/send-reminder`)
+  para disparar na hora, sem esperar o cron.
+- `payment_confirmed` disparado tanto pelo webhook do Mercado Pago quanto pelo
+  fallback manual "Verificar pagamento".
+- `contract_expiring` disparado quando um contrato e' salvo com status
+  "Vence em breve" (uma unica vez, ver `contracts.expiring_reminder_sent_at`).
+- Variaveis `WAHA_BASE_URL` e `WAHA_SESSION` em `wrangler.jsonc` (vars);
+  `WAHA_API_KEY` deve ser configurado via `wrangler secret put WAHA_API_KEY`
+  (nao commitado).
+- `APP_BASE_URL` tambem configurado em `wrangler.jsonc`, usado para montar o
+  link de pagamento dentro da mensagem.
+
+Pendente/possivel melhoria futura: tabela de historico completo de envios
+(hoje so guarda o ultimo evento por cobranca, ver secao acima); preferencia
+de inquilino para desativar lembretes; HTTPS entre a Cloudflare e o WAHA.
 
 ## Fontes oficiais
 

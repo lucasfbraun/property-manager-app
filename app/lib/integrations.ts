@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+
 export type MercadoPagoReceiverMode =
   | "central_account"
   | "multiple_accounts"
@@ -42,6 +44,7 @@ export type WhatsAppReminder = {
   paymentUrl: string;
   daysLate?: number;
   receiverName?: string;
+  propertyName?: string;
 };
 
 export type WahaTextMessagePayload = {
@@ -100,19 +103,55 @@ export function buildReminderText(message: WhatsAppReminder) {
     return `Ola, ${message.tenantName}. Identificamos aluguel em atraso no valor atualizado de ${formattedAmount}. Acesse o link para pagamento: ${message.paymentUrl}`;
   }
 
+  if (message.event === "contract_expiring") {
+    const propertyText = message.propertyName ? ` do imovel ${message.propertyName}` : "";
+    return `Ola, ${message.tenantName}. Seu contrato de locacao${propertyText} vence em ${message.dueDate}. Entre em contato para tratar da renovacao.`;
+  }
+
   return `Ola, ${message.tenantName}. Lembrete do aluguel com vencimento em ${message.dueDate}, valor ${formattedAmount}. Link para pagamento: ${message.paymentUrl}`;
 }
 
+function getWahaCredentials(): { baseUrl: string; apiKey: string; session: string } {
+  const config = env as Record<string, unknown>;
+  const baseUrl = config[whatsappAutomationConfig.wahaBaseUrlEnv] as string | undefined;
+  const apiKey = config[whatsappAutomationConfig.wahaApiKeyEnv] as string | undefined;
+  const session =
+    (config[whatsappAutomationConfig.wahaSessionEnv] as string | undefined) ??
+    whatsappAutomationConfig.defaultSession;
+
+  if (!baseUrl || !apiKey) {
+    throw new Error(
+      "Integracao WhatsApp nao configurada: defina WAHA_BASE_URL e WAHA_API_KEY na Cloudflare (wrangler.jsonc / wrangler secret put).",
+    );
+  }
+
+  return { apiKey, baseUrl: baseUrl.replace(/\/$/, ""), session };
+}
+
 /**
- * Sends a WhatsApp reminder straight to WAHA. Called from the Cron Trigger
- * sweep (see docs/INTEGRACAO_WHATSAPP_WAHA.md), not yet wired up: pending the
- * sweep function itself and the WAHA_* secrets in Cloudflare.
+ * Sends a WhatsApp reminder straight to WAHA (direct HTTP call, no
+ * orchestrator in between — see app/lib/reminders.ts for who calls this and
+ * app/lib/charge-scheduler.ts / worker/index.ts for the daily Cron Trigger
+ * sweep).
  */
 export async function sendPaymentReminder(
   message: WhatsAppReminder,
 ): Promise<void> {
-  void message;
-  throw new Error(
-    "Integracao WhatsApp pendente: configurar WAHA_BASE_URL/WAHA_API_KEY e implementar o disparo via Cron Trigger.",
-  );
+  const { apiKey, baseUrl, session } = getWahaCredentials();
+  const text = buildReminderText(message);
+  const payload = buildWahaTextPayload({ session, tenantPhone: message.tenantPhone, text });
+
+  const response = await fetch(`${baseUrl}${whatsappAutomationConfig.wahaSendTextEndpoint}`, {
+    body: JSON.stringify(payload),
+    headers: {
+      "Content-Type": "application/json",
+      "X-Api-Key": apiKey,
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Falha ao enviar WhatsApp via WAHA (status ${response.status}): ${body}`);
+  }
 }

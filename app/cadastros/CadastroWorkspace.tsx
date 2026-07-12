@@ -167,6 +167,32 @@ export function CadastroWorkspace({
     }
   }
 
+  async function sendReminder(contractId: string) {
+    setIsSaving(true);
+    try {
+      const response = await fetch("/api/charges/send-reminder", {
+        body: JSON.stringify({ contractId }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        event?: string;
+        tenantName?: string;
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(result.error ?? "Falha ao enviar lembrete por WhatsApp.");
+      }
+      setMessage(
+        `Lembrete (${reminderEventLabel(result.event)}) enviado para ${result.tenantName} no WhatsApp.`,
+      );
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function addTenant(formData: FormData) {
     const name = String(formData.get("name") ?? "").trim();
     const document = String(formData.get("document") ?? "").trim();
@@ -712,6 +738,14 @@ export function CadastroWorkspace({
                               Verificar pagamento
                             </button>
                             <button
+                              className="rounded-md border border-teal-200 px-3 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-teal-500/30 dark:text-teal-300 dark:hover:bg-teal-500/10"
+                              disabled={isSaving}
+                              onClick={() => sendReminder(contract.id)}
+                              type="button"
+                            >
+                              Enviar lembrete WhatsApp
+                            </button>
+                            <button
                               className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
                               disabled={isSaving}
                               onClick={() =>
@@ -836,6 +870,14 @@ export function CadastroWorkspace({
                           type="button"
                         >
                           Verificar pagamento
+                        </button>
+                        <button
+                          className="rounded-md border border-teal-200 px-3 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-teal-500/30 dark:text-teal-300 dark:hover:bg-teal-500/10"
+                          disabled={isSaving}
+                          onClick={() => sendReminder(contract.id)}
+                          type="button"
+                        >
+                          Enviar lembrete WhatsApp
                         </button>
                         <button
                           className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
@@ -1148,4 +1190,21 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Erro inesperado.";
+}
+
+function reminderEventLabel(event: string | undefined) {
+  switch (event) {
+    case "before_due":
+      return "antes do vencimento";
+    case "due_day":
+      return "vencimento hoje";
+    case "after_due":
+      return "atraso";
+    case "payment_confirmed":
+      return "pagamento confirmado";
+    case "contract_expiring":
+      return "contrato vencendo";
+    default:
+      return "lembrete";
+  }
 }

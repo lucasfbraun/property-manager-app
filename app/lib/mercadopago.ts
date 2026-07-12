@@ -298,7 +298,7 @@ type PixChargeRow = {
  * the fixed demo `businessDate` used by the dashboard projections), since
  * this drives an actual Pix payment amount.
  */
-function computeCurrentAmountDue(row: PixChargeRow): number {
+export function computeCurrentAmountDue(row: PixChargeRow): number {
   if (row.status === "paid") {
     return row.original_amount;
   }
@@ -626,6 +626,62 @@ export async function getChargeStakeholders(chargeId: string): Promise<{
     receiverName: row.receiver_name,
     tenantEmail: row.tenant_email,
     tenantName: row.tenant_name,
+  };
+}
+
+type ChargeReminderRow = PixChargeRow & {
+  tenant_whatsapp: string;
+  property_name: string;
+  receiver_name: string;
+  contract_ends_at: string;
+};
+
+/** Everything a WhatsApp reminder needs about a charge, in one lookup (app/lib/reminders.ts). */
+export async function getChargeReminderContext(chargeId: string): Promise<{
+  chargeId: string;
+  status: string;
+  dueDateIso: string;
+  amountDue: number;
+  tenantName: string;
+  tenantPhone: string;
+  propertyName: string;
+  receiverName: string;
+  contractEndsAt: string;
+} | null> {
+  const d1 = getD1();
+  const row = await d1
+    .prepare(
+      `SELECT c.id as id, c.original_amount as original_amount, c.due_date as due_date,
+              c.status as status, c.contract_id as contract_id, c.receiver_id as receiver_id,
+              ct.grace_days as grace_days, ct.fine_rate as fine_rate,
+              ct.monthly_interest_rate as monthly_interest_rate, ct.ends_at as contract_ends_at,
+              t.email as tenant_email, t.name as tenant_name, t.document as tenant_document,
+              t.whatsapp as tenant_whatsapp,
+              p.name as property_name, r.name as receiver_name
+       FROM charges c
+       JOIN contracts ct ON ct.id = c.contract_id
+       JOIN tenants t ON t.id = ct.tenant_id
+       JOIN properties p ON p.id = ct.property_id
+       JOIN receivers r ON r.id = ct.receiver_id
+       WHERE c.id = ?`,
+    )
+    .bind(chargeId)
+    .first<ChargeReminderRow>();
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    amountDue: computeCurrentAmountDue(row),
+    chargeId: row.id,
+    contractEndsAt: row.contract_ends_at,
+    dueDateIso: row.due_date,
+    propertyName: row.property_name,
+    receiverName: row.receiver_name,
+    status: row.status,
+    tenantName: row.tenant_name,
+    tenantPhone: row.tenant_whatsapp,
   };
 }
 

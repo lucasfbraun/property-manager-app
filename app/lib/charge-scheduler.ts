@@ -15,7 +15,7 @@ function pad2(value: number): string {
   return String(value).padStart(2, "0");
 }
 
-function todayInSaoPaulo(): string {
+export function todayInSaoPaulo(): string {
   const formatter = new Intl.DateTimeFormat("en-CA", {
     day: "2-digit",
     month: "2-digit",

@@ -1,34 +1,26 @@
 import { requireApiUser, UnauthorizedError } from "../../../lib/session";
-import { getLatestChargeIdForContract, syncChargePayment } from "../../../lib/mercadopago";
-import { sendPaymentConfirmedReminder } from "../../../lib/reminders";
+import { getLatestChargeIdForContract } from "../../../lib/mercadopago";
+import { sendChargeReminder } from "../../../lib/reminders";
+import { ensureRentalDatabase } from "../../../lib/rental-repository";
 
 /**
- * Manual fallback for when the Mercado Pago webhook doesn't arrive (wrong/
- * missing production webhook config, delivery failure, etc.): looks up the
- * latest charge for a contract and reconciles it directly against the MP
- * Payments API.
+ * Manual "Enviar lembrete WhatsApp" button (admin only): sends whichever
+ * reminder currently makes sense (antes do vencimento, no dia, atraso ou
+ * pagamento confirmado) for the contract's latest charge, via WAHA.
  */
 export async function POST(request: Request) {
   try {
     await requireApiUser(["admin"]);
+    await ensureRentalDatabase();
     const payload = (await request.json()) as Record<string, unknown>;
     const contractId = requiredString(payload.contractId, "contractId");
 
     const chargeId = await getLatestChargeIdForContract(contractId);
     if (!chargeId) {
-      throw new Error("Nenhuma cobranca encontrada para esse contrato.");
+      throw new Error("Nenhuma cobranca encontrada para esse contrato. Gere a cobranca antes.");
     }
 
-    const result = await syncChargePayment(chargeId);
-
-    if (result.updated) {
-      try {
-        await sendPaymentConfirmedReminder(chargeId);
-      } catch (whatsappError) {
-        console.error("[sync-payment] falha ao notificar por whatsapp:", whatsappError);
-      }
-    }
-
+    const result = await sendChargeReminder(chargeId);
     return Response.json(result);
   } catch (error) {
     return Response.json({ error: getErrorMessage(error) }, { status: errorStatus(error) });

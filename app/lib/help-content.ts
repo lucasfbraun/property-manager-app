@@ -138,7 +138,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     answer:
-      "A tela Integracoes mostra a configuracao planejada para lembretes automaticos via WhatsApp (um Cron Trigger da Cloudflare chamando o WAHA diretamente, sem orquestrador no meio). Essa parte ainda depende de credenciais/infraestrutura do WAHA e ainda nao esta ativa em producao — hoje e so planejamento documentado.",
+      "O envio de WhatsApp esta ativo: o WAHA roda self-hosted (AWS) e a aplicacao chama ele direto, sem orquestrador no meio. Ha' dois caminhos — o botao 'Enviar lembrete WhatsApp' em Cadastros (contratos) manda na hora o lembrete que fizer sentido para aquela cobranca (antes do vencimento, no dia, atraso ou pagamento confirmado); e um Cron Trigger diario que faz isso automaticamente para todos os contratos, alem de avisar quando um pagamento e' confirmado (webhook/verificacao manual) e quando um contrato e' marcado como 'Vence em breve'. A tela Integracoes mostra a configuracao (endpoint do WAHA, sessao, eventos).",
     id: "whatsapp",
     keywords: ["whatsapp", "lembrete", "lembretes", "waha", "integracao", "mensagem automatica"],
     title: "Como funciona a integracao com WhatsApp?",

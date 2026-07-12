@@ -33,6 +33,16 @@
 			"0 12 * * *"
 		]
 	},
+	"vars": {
+		// Public URL of this Worker deploy, used to build links inside WhatsApp
+		// reminders (e.g. "{APP_BASE_URL}/inquilino").
+		"APP_BASE_URL": "https://property-manager.lucasfbraun.workers.dev",
+		// WAHA (WhatsApp HTTP API) instance, self-hosted on AWS Lightsail. Not a
+		// secret by itself (no auth), so it's fine as a plain var; WAHA_API_KEY
+		// below is the one that must be set via `wrangler secret put`, never here.
+		"WAHA_BASE_URL": "http://34.192.69.176:3000",
+		"WAHA_SESSION": "default"
+	},
 	"observability": {
 		"enabled": true
 	}

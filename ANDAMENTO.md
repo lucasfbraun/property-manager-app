@@ -69,7 +69,7 @@ O armazenamento do PDF assinado foi migrado de blob no D1 para o **Cloudflare R2
 
 ## 7. O que ainda falta / gaps conhecidos
 
-- Lembretes automaticos via WhatsApp (Cron Trigger da Cloudflare chamando o WAHA diretamente, sem n8n — decisao simplificada em 11/07/2026, ver `docs/INTEGRACAO_WHATSAPP_WAHA.md`): ainda nao implementado, so planejado. Regua ja definida: aviso 5 dias antes do vencimento, aviso no dia do vencimento e, em caso de atraso, repeticao a cada 3 dias ate a cobranca ser paga ou cancelada.
+- Lembretes via WhatsApp: implementado e ativo (12/07/2026) — ver secao 9c. Pendente apenas: preferencia do inquilino para desativar lembretes, historico completo de envios (hoje so guarda o ultimo por cobranca) e HTTPS entre a Cloudflare e o WAHA (rodando sem SSL por decisao explicita, ver `WAHA-DEPLOY.md`).
 - Autoatendimento de troca de senha pelo proprio usuario: nao existe.
 - Tela para editar ou cancelar uma cobranca ja gerada: nao existe (hoje so ha geracao). O valor de um rateio ja aplicado a uma cobranca tambem nao pode ser removido pela UI hoje.
 - Webhook de producao do Mercado Pago: precisa ser configurado no painel do Mercado Pago (hoje so o "Modo teste" esta configurado); ate la, o fluxo depende do botao manual "Verificar pagamento".
@@ -108,6 +108,18 @@ Feature nova (12/07/2026): botao "?" flutuante, presente so nas telas do admin (
 - **Nunca acessa dados reais**: a busca so roda sobre o texto fixo do FAQ — nunca consulta o banco (tenants, contracts, charges, tokens do Mercado Pago). Isso elimina de saida o risco de vazar dado sensivel pelo chat.
 - O conteudo do FAQ espelha o `MANUAL-ADMIN.md` (na raiz do projeto), que documenta objetivamente cada funcionalidade do painel: cadastro de inquilino/imovel/recebedor, conexao com o Mercado Pago, contratos e modelos, vistoria, assinatura, ocorrencias, cobranca e Pix, verificar pagamento, recibo, rateios, dashboard e integracoes. Ao adicionar/alterar uma funcionalidade, atualizar os dois (manual + `help-content.ts`) para o chat continuar respondendo certo.
 
+## 9c. Lembretes via WhatsApp (WAHA)
+
+Feature nova (12/07/2026): envio real de lembretes de cobranca por WhatsApp, sem orquestrador (n8n) no meio — ver decisao completa em `docs/INTEGRACAO_WHATSAPP_WAHA.md` e o guia de infraestrutura em `WAHA-DEPLOY.md`.
+
+- **Infraestrutura**: WAHA (WhatsApp HTTP API) self-hosted numa instancia AWS Lightsail (Ubuntu + Docker), rodando sem HTTPS por decisao explicita do usuario (risco aceito: trafego em texto puro entre Cloudflare e AWS — ver apendice de `WAHA-DEPLOY.md` para adicionar SSL depois via Cloudflare).
+- **Disparo manual**: botao "Enviar lembrete WhatsApp" na tela `/cadastros` (contratos) — manda na hora o evento que fizer sentido para a cobranca mais recente daquele contrato (antes do vencimento, no dia, atraso ou pagamento confirmado).
+- **Disparo automatico**: `runReminderSweep()` (`app/lib/reminders.ts`) roda todo dia dentro do mesmo Cron Trigger que gera as cobrancas (`worker/index.ts`). Regua: aviso 5 dias antes do vencimento, aviso no dia, e em atraso repete a cada 3 dias ate a cobranca ser paga (dedupe via `charges.last_reminder_event`/`last_reminder_sent_at`, guardando so o ultimo evento por cobranca).
+- **Pagamento confirmado**: disparado tanto pelo webhook do Mercado Pago quanto pelo fallback manual "Verificar pagamento".
+- **Contrato vencendo**: disparado uma unica vez quando um contrato e salvo com status "Vence em breve" (`contracts.expiring_reminder_sent_at` evita repeticao).
+
+Pendente: preferencia do inquilino para desativar lembretes, historico completo de envios (auditoria), e HTTPS entre a Cloudflare e o WAHA.
+
 ## 10. Configuracao e segredos necessarios
 
 Variaveis/segredos que precisam estar configurados no ambiente Cloudflare Workers:
@@ -117,6 +129,13 @@ Variaveis/segredos que precisam estar configurados no ambiente Cloudflare Worker
 - `MP_CLIENT_ID` — client id da aplicacao Mercado Pago.
 - `MP_CLIENT_SECRET` — client secret da aplicacao Mercado Pago (tambem usado para assinar o parametro `state` do OAuth).
 - `MP_WEBHOOK_SECRET` — segredo para validar a assinatura HMAC dos webhooks do Mercado Pago.
+- `WAHA_API_KEY` — chave da instancia WAHA (configurar via `wrangler secret put WAHA_API_KEY`, nunca commitar em `wrangler.jsonc`).
+
+Vars (ja em `wrangler.jsonc`, nao sao segredos):
+
+- `WAHA_BASE_URL` — endpoint da instancia WAHA na AWS Lightsail.
+- `WAHA_SESSION` — nome da sessao do WhatsApp conectada no WAHA (`default`).
+- `APP_BASE_URL` — URL publica do Worker, usada para montar o link de pagamento nas mensagens de WhatsApp.
 
 Bindings de infraestrutura (ja configurados em `wrangler.jsonc`):
 
@@ -146,3 +165,5 @@ Toda a implementacao inicial do projeto foi entregue em um unico dia (05/07/2026
 | 11/07/2026 | — | Revisao e atualizacao do cronograma e da documentacao de andamento |
 | 11/07/2026 | — | Correcao do menu lateral inacessivel no celular + revisao de responsividade mobile em todo o app |
 | 11/07/2026 | — | Quantidade de moradores no cadastro do inquilino + rateio proporcional a moradores |
+| 12/07/2026 | — | Chat de ajuda (busca por palavras-chave, sem IA externa) no painel admin |
+| 12/07/2026 | — | Deploy do WAHA self-hosted na AWS Lightsail + envio real de lembretes de cobranca por WhatsApp (manual e automatico via cron) |
