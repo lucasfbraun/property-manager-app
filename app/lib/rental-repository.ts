@@ -560,10 +560,11 @@ export async function updateContract(input: {
         : "active";
 
   const previous = await d1
-    .prepare("SELECT monthly_rent FROM contracts WHERE id = ?")
+    .prepare("SELECT monthly_rent, due_day FROM contracts WHERE id = ?")
     .bind(input.id)
-    .first<{ monthly_rent: number }>();
+    .first<{ monthly_rent: number; due_day: number }>();
   const rentChanged = Boolean(previous) && previous!.monthly_rent !== input.monthlyRent;
+  const dueDayChanged = Boolean(previous) && previous!.due_day !== input.dueDay;
 
   await d1
     .prepare(
@@ -611,6 +612,32 @@ export async function updateContract(input: {
       )
       .bind(input.monthlyRent, input.id)
       .run();
+  }
+
+  if (dueDayChanged) {
+    // The due date shown to the tenant per charge (`charges.due_date`) is
+    // also snapshotted at generation time from the contract's due_day, so it
+    // goes stale the same way `original_amount` does. Shift every not-yet-paid
+    // charge's due date to the new day-of-month, keeping the same
+    // reference month/year it was generated for.
+    const pendingCharges = await d1
+      .prepare("SELECT id, due_date FROM charges WHERE contract_id = ? AND status != 'paid'")
+      .bind(input.id)
+      .all<{ id: string; due_date: string }>();
+
+    for (const charge of pendingCharges.results) {
+      const [yearStr, monthStr] = charge.due_date.split("-");
+      const year = Number(yearStr);
+      const month = Number(monthStr);
+      const lastDayOfMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+      const newDay = Math.min(input.dueDay, lastDayOfMonth);
+      const newDueDate = `${yearStr}-${monthStr}-${String(newDay).padStart(2, "0")}`;
+
+      await d1
+        .prepare("UPDATE charges SET due_date = ? WHERE id = ?")
+        .bind(newDueDate, charge.id)
+        .run();
+    }
   }
 
   if (input.witnessIds) {
