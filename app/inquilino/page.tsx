@@ -49,7 +49,6 @@ export default async function TenantPortal() {
 
   const rentalData = await getRentalData();
   const portal = getTenantPortalData(user.tenantId, rentalData);
-  const currentContract = portal.contracts[0];
   const openCharges = portal.charges.filter((charge) => charge.status !== "Paga");
 
   return (
@@ -228,74 +227,64 @@ export default async function TenantPortal() {
           </div>
 
           <aside className="space-y-5">
-            {currentContract ? (
-              <section className="surface-card p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-lg font-semibold">Contrato atual</h2>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${signatureTone[currentContract.signatureStatus]}`}
-                  >
-                    {signatureStatusLabel(currentContract.signatureStatus)}
-                  </span>
-                </div>
-                <dl className="mt-4 space-y-3 text-sm">
-                  <Info label="Imovel" value={currentContract.property.name} />
-                  <Info
-                    label="Endereco"
-                    value={currentContract.property.address}
-                  />
-                  <Info
-                    label="Recebedor"
-                    value={`${currentContract.receiver.name} (${currentContract.receiver.mpAccount})`}
-                  />
-                  <Info
-                    label="Aluguel mensal"
-                    value={formatCurrency(currentContract.monthlyRent)}
-                  />
-                  <Info
-                    label="Periodo"
-                    value={`${formatDate(currentContract.startsAt)} ate ${formatDate(currentContract.endsAt)}`}
-                  />
-                  <Info label="Vencimento" value={`Dia ${currentContract.dueDay}`} />
-                </dl>
-                {currentContract.signatureStatus !== "not_generated" ? (
-                  <Link
-                    className="btn-primary mt-4 inline-flex"
-                    href={`/contrato?contractId=${currentContract.id}`}
-                  >
-                    Ver contrato e assinatura
-                  </Link>
-                ) : (
-                  <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
-                    O administrador ainda nao gerou o documento deste contrato.
-                  </p>
-                )}
-              </section>
+            {portal.contracts.length > 0 ? (
+              portal.contracts.map((contract) => (
+                <section className="surface-card p-4" key={contract.id}>
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-lg font-semibold">
+                      Contrato - {contract.property.name}
+                    </h2>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${signatureTone[contract.signatureStatus]}`}
+                    >
+                      {signatureStatusLabel(contract.signatureStatus)}
+                    </span>
+                  </div>
+                  <dl className="mt-4 space-y-3 text-sm">
+                    <Info label="Imovel" value={contract.property.name} />
+                    <Info label="Endereco" value={contract.property.address} />
+                    <Info
+                      label="Recebedor"
+                      value={`${contract.receiver.name} (${contract.receiver.mpAccount})`}
+                    />
+                    <Info
+                      label="Aluguel mensal"
+                      value={formatCurrency(contract.monthlyRent)}
+                    />
+                    <Info
+                      label="Periodo"
+                      value={`${formatDate(contract.startsAt)} ate ${formatDate(contract.endsAt)}`}
+                    />
+                    <Info label="Vencimento" value={`Dia ${contract.dueDay}`} />
+                    <Info
+                      label="Multa"
+                      value={`${(contract.fineRate * 100).toFixed(0)}%`}
+                    />
+                    <Info
+                      label="Juros"
+                      value={`${(contract.monthlyInterestRate * 100).toFixed(0)}% ao mes`}
+                    />
+                    <Info label="Carencia" value={`${contract.graceDays} dia(s)`} />
+                  </dl>
+                  {contract.signatureStatus !== "not_generated" ? (
+                    <Link
+                      className="btn-primary mt-4 inline-flex"
+                      href={`/contrato?contractId=${contract.id}`}
+                    >
+                      Ver contrato e assinatura
+                    </Link>
+                  ) : (
+                    <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
+                      O administrador ainda nao gerou o documento deste contrato.
+                    </p>
+                  )}
+                </section>
+              ))
             ) : (
               <section className="surface-card p-4 text-sm text-slate-600 dark:text-slate-400">
                 Nenhum contrato ativo encontrado para este inquilino.
               </section>
             )}
-
-            {currentContract ? (
-              <section className="surface-card p-4">
-                <h2 className="text-lg font-semibold">Regras de atraso</h2>
-                <dl className="mt-4 space-y-3 text-sm">
-                  <Info
-                    label="Multa"
-                    value={`${(currentContract.fineRate * 100).toFixed(0)}%`}
-                  />
-                  <Info
-                    label="Juros"
-                    value={`${(currentContract.monthlyInterestRate * 100).toFixed(0)}% ao mes`}
-                  />
-                  <Info
-                    label="Carencia"
-                    value={`${currentContract.graceDays} dia(s)`}
-                  />
-                </dl>
-              </section>
-            ) : null}
           </aside>
         </section>
       </div>

@@ -47,6 +47,8 @@ Status possiveis: `not_generated`, `awaiting_signature`, `in_review`, `approved`
 
 O armazenamento do PDF assinado foi migrado de blob no D1 para o **Cloudflare R2** (bucket `property-manager-signed-contracts`), por ser mais barato e adequado ao volume esperado (poucos contratos).
 
+**Bug corrigido (12/07/2026):** o portal do inquilino (`/inquilino`) so exibia o **primeiro** contrato do inquilino (`portal.contracts[0]`), escolhido de forma arbitraria pela ordem da consulta. Um inquilino com mais de um contrato (ex.: um antigo encerrado e um novo aguardando assinatura) podia nao ver o link "Ver contrato e assinatura" do contrato que realmente precisava de acao, sem nenhuma forma de acessa-lo. Corrigido para listar **todos** os contratos do inquilino, cada um com seu proprio status, regras de atraso e link de download/assinatura.
+
 ## 5. Cobranca via Pix (Mercado Pago)
 
 - Cada recebedor conecta sua **propria conta Mercado Pago** via OAuth (modelo marketplace/split), nao ha conta central unica.
@@ -170,3 +172,4 @@ Toda a implementacao inicial do projeto foi entregue em um unico dia (05/07/2026
 | 12/07/2026 | — | Deploy do WAHA self-hosted na AWS Lightsail + envio real de lembretes de cobranca por WhatsApp (manual e automatico via cron) |
 | 12/07/2026 | — | Upgrade do plano da instancia AWS Lightsail do WAHA (snapshot + nova instancia, resolvendo instabilidade por falta de memoria) |
 | 12/07/2026 | — | Menu lateral (desktop e mobile) em todas as telas admin, com posicionamento fixo (sticky) ao rolar |
+| 12/07/2026 | — | Correcao de bug: portal do inquilino so mostrava o primeiro contrato (arbitrario); agora lista todos os contratos do inquilino |
