@@ -130,6 +130,7 @@ export function CadastroWorkspace({
       });
       const result = (await response.json()) as {
         created?: boolean;
+        updated?: boolean;
         reference?: string;
         error?: string;
       };
@@ -139,7 +140,9 @@ export function CadastroWorkspace({
       setMessage(
         result.created
           ? `Cobranca de ${result.reference} gerada.`
-          : `Cobranca de ${result.reference} ja existia.`,
+          : result.updated
+            ? `Cobranca de ${result.reference} ja existia e foi atualizada com o valor atual do contrato.`
+            : `Cobranca de ${result.reference} ja existia e esta paga, entao nao foi alterada.`,
       );
       await refreshData();
     } catch (error) {

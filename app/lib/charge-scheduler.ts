@@ -111,10 +111,14 @@ async function insertCharge(input: {
 
 /**
  * Manually (or on-demand) generates the current billing cycle's charge for
- * one contract, unless it already exists.
+ * one contract. If a charge for this reference already exists and hasn't
+ * been paid yet, its amount is refreshed to the contract's current
+ * monthly_rent instead of silently no-op'ing — covers the case where the
+ * rent was edited after the charge had already been generated.
  */
 export async function generateChargeForContract(contractId: string): Promise<{
   created: boolean;
+  updated: boolean;
   chargeId?: string;
   reference: string;
 }> {
@@ -135,8 +139,24 @@ export async function generateChargeForContract(contractId: string): Promise<{
   const { dueDateIso } = resolveBillingCycleDueDate(contract.due_day, today);
   const reference = formatReference(dueDateIso);
 
-  if (await chargeExists(contractId, reference)) {
-    return { created: false, reference };
+  const existing = await d1
+    .prepare("SELECT id, status FROM charges WHERE contract_id = ? AND reference = ? LIMIT 1")
+    .bind(contractId, reference)
+    .first<{ id: string; status: string }>();
+
+  if (existing) {
+    if (existing.status === "paid") {
+      return { created: false, reference, updated: false };
+    }
+
+    await d1
+      .prepare(
+        `UPDATE charges SET original_amount = ? + COALESCE(rateio_amount, 0) WHERE id = ?`,
+      )
+      .bind(contract.monthly_rent, existing.id)
+      .run();
+
+    return { chargeId: existing.id, created: false, reference, updated: true };
   }
 
   const chargeId = await insertCharge({
@@ -151,7 +171,7 @@ export async function generateChargeForContract(contractId: string): Promise<{
   // before the charge existed (see app/lib/rateios.ts).
   await applyPendingRateioAllocations(contract.property_id, reference, chargeId);
 
-  return { chargeId, created: true, reference };
+  return { chargeId, created: true, reference, updated: false };
 }
 
 /**
