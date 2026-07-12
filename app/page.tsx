@@ -73,7 +73,7 @@ export default async function Home() {
         </aside>
 
         <section className="flex-1 px-4 py-5 sm:px-6 lg:px-8">
-          <div className="mb-4 flex items-center justify-between lg:hidden">
+          <div className="sticky top-0 z-30 -mx-4 mb-4 flex items-center justify-between border-b border-slate-200 bg-[#F8FAFC] px-4 py-3 dark:border-white/10 dark:bg-[#0b1220] sm:-mx-6 sm:px-6 lg:hidden">
             <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
               Gestao de Alugueis
             </span>

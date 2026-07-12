@@ -85,6 +85,7 @@ O armazenamento do PDF assinado foi migrado de blob no D1 para o **Cloudflare R2
 - **Mobile**: revisao de codigo confirmou uso consistente de breakpoints Tailwind (`sm:`/`md:`/`xl:`) e `overflow-x-auto` nas tabelas. Dois problemas reais foram encontrados e corrigidos:
   - Botao "Remover" das fotos de vistoria so aparecia com `:hover` (invisivel em touch) — corrigido para ficar sempre visivel em telas pequenas (`opacity-100 sm:opacity-0 sm:group-hover:opacity-100`).
   - Coluna de acoes da tabela de contratos (`/cadastros`) foi reformulada: em telas `sm:` para cima continua como botoes inline; em mobile vira um menu suspenso "Acoes ...", evitando quebra de layout.
+- **Menu lateral em todas as telas** (12/07/2026): o menu (desktop e mobile) antes so aparecia no Dashboard; agora aparece nas 5 telas admin (Dashboard, Cadastros, Contratos, Rateios, Integracoes), com o item da tela atual destacado. Extraido em `app/components/AdminNav.tsx` (usado nas 4 telas novas; o Dashboard mantem sua propria versao original, ja testada, sem alteracoes estruturais). Ambos — a barra lateral no desktop e a barra com o botao "Menu" no mobile — agora ficam fixos (`sticky top-0`) ao rolar a tela, em vez de rolar junto com o conteudo.
 - Verificacao visual ao vivo (via extensao Chrome) ainda pendente — ver secao 7.
 
 ## 9. Rateios entre imoveis (despesas compartilhadas, opcional)
@@ -112,7 +113,7 @@ Feature nova (12/07/2026): botao "?" flutuante, presente so nas telas do admin (
 
 Feature nova (12/07/2026): envio real de lembretes de cobranca por WhatsApp, sem orquestrador (n8n) no meio — ver decisao completa em `docs/INTEGRACAO_WHATSAPP_WAHA.md` e o guia de infraestrutura em `WAHA-DEPLOY.md`.
 
-- **Infraestrutura**: WAHA (WhatsApp HTTP API) self-hosted numa instancia AWS Lightsail (Ubuntu + Docker), rodando sem HTTPS por decisao explicita do usuario (risco aceito: trafego em texto puro entre Cloudflare e AWS — ver apendice de `WAHA-DEPLOY.md` para adicionar SSL depois via Cloudflare).
+- **Infraestrutura**: WAHA (WhatsApp HTTP API) self-hosted numa instancia AWS Lightsail (Ubuntu + Docker), rodando sem HTTPS por decisao explicita do usuario (risco aceito: trafego em texto puro entre Cloudflare e AWS — ver apendice de `WAHA-DEPLOY.md` para adicionar SSL depois via Cloudflare). A instancia inicial (plano de 512MB) apresentou quedas de conexao por falta de memoria; corrigido primeiro com um arquivo de swap de 1GB e depois definitivamente com um upgrade de plano (snapshot da instancia + nova instancia num plano maior, mesmo IP estatico reanexado). A instancia antiga foi mantida parada como backup ate confirmar a estabilidade da nova (snapshot ja serve de backup por um custo bem menor que manter a instancia inteira).
 - **Disparo manual**: botao "Enviar lembrete WhatsApp" na tela `/cadastros` (contratos) — manda na hora o evento que fizer sentido para a cobranca mais recente daquele contrato (antes do vencimento, no dia, atraso ou pagamento confirmado).
 - **Disparo automatico**: `runReminderSweep()` (`app/lib/reminders.ts`) roda todo dia dentro do mesmo Cron Trigger que gera as cobrancas (`worker/index.ts`). Regua: aviso 5 dias antes do vencimento, aviso no dia, e em atraso repete a cada 3 dias ate a cobranca ser paga (dedupe via `charges.last_reminder_event`/`last_reminder_sent_at`, guardando so o ultimo evento por cobranca).
 - **Pagamento confirmado**: disparado tanto pelo webhook do Mercado Pago quanto pelo fallback manual "Verificar pagamento".
@@ -167,3 +168,5 @@ Toda a implementacao inicial do projeto foi entregue em um unico dia (05/07/2026
 | 11/07/2026 | — | Quantidade de moradores no cadastro do inquilino + rateio proporcional a moradores |
 | 12/07/2026 | — | Chat de ajuda (busca por palavras-chave, sem IA externa) no painel admin |
 | 12/07/2026 | — | Deploy do WAHA self-hosted na AWS Lightsail + envio real de lembretes de cobranca por WhatsApp (manual e automatico via cron) |
+| 12/07/2026 | — | Upgrade do plano da instancia AWS Lightsail do WAHA (snapshot + nova instancia, resolvendo instabilidade por falta de memoria) |
+| 12/07/2026 | — | Menu lateral (desktop e mobile) em todas as telas admin, com posicionamento fixo (sticky) ao rolar |

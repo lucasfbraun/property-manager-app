@@ -32,7 +32,9 @@ Se o badge mostrar "token TESTE", as cobrancas Pix desse recebedor rodam em modo
 
 Formulario "Novo contrato": escolha inquilino, imovel e recebedor, informe valor do aluguel, dia de vencimento e data de fim. O recebedor fica gravado no contrato e e copiado para cada cobranca gerada (preserva o historico mesmo se o contrato for alterado depois).
 
-Editar um contrato (na tabela "Contratos cadastrados") permite ajustar valor, dia de vencimento, data de fim, status, multa (%), juros ao mes (%) e dias de carencia.
+Editar um contrato (na tabela "Contratos cadastrados") permite ajustar valor, dia de vencimento, data de fim, status, multa (%), juros ao mes (%) e dias de carencia. Ao salvar um contrato com status "Vence em breve", o inquilino recebe automaticamente um aviso por WhatsApp sobre a proximidade do fim do contrato (uma unica vez).
+
+O botao "Enviar lembrete WhatsApp", na mesma linha do contrato, dispara na hora o lembrete que fizer sentido para a cobranca mais recente daquele contrato (antes do vencimento, no dia, em atraso ou pagamento confirmado) — util para testar ou reforcar um aviso sem esperar o envio automatico diario.
 
 ## 6. Modelos (templates) de contrato
 
@@ -89,7 +91,13 @@ Tela inicial (`/`): totais previstos, recebidos, em aberto e em atraso no period
 
 ## 17. Integracoes (WhatsApp)
 
-Tela `/integracoes`: mostra a configuracao planejada para lembretes automaticos via WhatsApp (Cron Trigger da Cloudflare chamando o WAHA diretamente). Essa parte ainda depende de credenciais/infraestrutura do WAHA e nao esta ativa em producao.
+Tela `/integracoes`: o envio de lembretes por WhatsApp esta **ativo**. Um Cron Trigger da Cloudflare roda todo dia e chama diretamente uma instancia do WAHA (WhatsApp HTTP API, self-hosted na AWS), sem orquestrador no meio. A tela mostra o endpoint configurado, a sessao ativa e a tabela de eventos que disparam mensagem:
+
+- **Antes do vencimento** (5 dias antes), **no dia do vencimento**, **em atraso** (repete a cada 3 dias enquanto nao for pago).
+- **Pagamento confirmado** (via webhook do Mercado Pago ou pelo "Verificar pagamento" manual).
+- **Contrato vencendo** (quando o status do contrato vira "Vence em breve", ver secao 5).
+
+Alem do envio automatico, o botao "Enviar lembrete WhatsApp" em `/cadastros` (secao 5) permite disparar manualmente a qualquer momento.
 
 ## 18. Seguranca e dados sensiveis
 

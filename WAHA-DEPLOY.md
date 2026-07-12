@@ -19,6 +19,22 @@ seguir o apendice "Adicionar SSL depois" no fim deste documento.
 
 Nenhum — so' o IP estatico ja anexado, `34.192.69.176`.
 
+## Licao aprendida: plano da instancia
+
+A instancia inicial foi criada no plano de **US$5/mes (512MB de RAM)**, o que causou quedas de conexao SSH e do proprio WAHA por falta de memoria (sem swap configurado, o Linux mata processos aleatoriamente quando a RAM acaba). Duas correcoes foram aplicadas, nessa ordem:
+
+1. **Swap de emergencia** (rapido, gratuito, resolve na hora):
+   ```bash
+   sudo fallocate -l 1G /swapfile
+   sudo chmod 600 /swapfile
+   sudo mkswap /swapfile
+   sudo swapon /swapfile
+   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+   ```
+2. **Upgrade definitivo do plano** (o que resolveu de vez): criar um **snapshot** da instancia (menu da instancia > "Create snapshot"), depois "Create instance" a partir do snapshot escolhendo um plano maior (usado: US$7/mes, 1GB — ja` suficiente com folga). Depois, mover o **IP estatico** da instancia antiga pra nova (Networking > IP estatico > Detach/Attach) e conferir se o firewall da instancia nova tem a regra **Custom TCP 3000** (nem sempre copia certinho do snapshot). O Docker e o container sobem sozinhos no boot (`restart: unless-stopped`), sem precisar refazer a instalacao.
+
+Recomendacao pra quem for instalar do zero: comece direto no plano de **1GB (US$7/mes)** pra evitar essa instabilidade — o de 512MB so' e' viavel com swap, e mesmo assim fica no limite.
+
 ## 1. Conectar na instancia
 
 Na lista de instancias da Lightsail, clique no icone de terminal (SSH direto
