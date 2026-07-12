@@ -63,7 +63,7 @@ Depois que o admin gera o contrato, o inquilino ve o texto e as fotos da vistori
 
 ## 10. Ocorrencias reportadas pelo inquilino
 
-Inquilinos podem registrar divergencias ou problemas (com fotos) direto no portal deles. O admin acompanha e resolve em `/contratos`, painel "Ocorrencias reportadas pelos inquilinos": marcar "Em analise" ou "Marcar resolvida" (com observacao opcional).
+Inquilinos podem registrar divergencias ou problemas (com fotos e descricao) direto na pagina inicial do portal deles (`/inquilino`), sem precisar entrar num contrato especifico — se tiverem mais de um contrato, escolhem antes o imovel relacionado. O admin acompanha e resolve em `/contratos`, painel "Ocorrencias reportadas pelos inquilinos": marcar "Em analise" ou "Marcar resolvida" (com observacao opcional).
 
 ## 11. Geracao de cobranca mensal
 

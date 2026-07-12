@@ -10,6 +10,7 @@ import { requireUser } from "../lib/session";
 import { LogoutButton } from "../components/LogoutButton";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { PixButton } from "./PixButton";
+import { OccurrencePanel } from "./OccurrencePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -165,6 +166,13 @@ export default async function TenantPortal() {
                 )}
               </div>
             </section>
+
+            <OccurrencePanel
+              contracts={portal.contracts.map((contract) => ({
+                id: contract.id,
+                propertyName: contract.property.name,
+              }))}
+            />
 
             <section className="surface-card p-4">
               <h2 className="mb-3 text-lg font-semibold">Historico</h2>

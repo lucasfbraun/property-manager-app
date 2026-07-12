@@ -83,7 +83,7 @@ O armazenamento do PDF assinado foi migrado de blob no D1 para o **Cloudflare R2
 ## 8. Vistoria fotografica, ocorrencias e responsividade mobile
 
 - **Vistoria fotografica**: no contrato, o admin registra fotos da vistoria do imovel (`app/contratos/InspectionPhotosManager.tsx`), com upload direto pela camera do celular (`capture="environment"` no input de arquivo) e opcao de remover uma foto.
-- **Registro de ocorrencias**: inquilino pode registrar ocorrencias (com foto, mesmo mecanismo `capture="environment"`) pelo portal.
+- **Registro de ocorrencias**: inquilino pode registrar ocorrencias (com foto, mesmo mecanismo `capture="environment"`) pelo portal. Disponivel tanto dentro da pagina de um contrato especifico (`/contrato`) quanto direto na pagina inicial do portal (`/inquilino`, 12/07/2026) — reaproveita o mesmo componente `OccurrenceReporter`; se o inquilino tiver mais de um contrato, um seletor deixa escolher a qual imovel a ocorrencia se refere antes de anexar fotos e descricao.
 - **Mobile**: revisao de codigo confirmou uso consistente de breakpoints Tailwind (`sm:`/`md:`/`xl:`) e `overflow-x-auto` nas tabelas. Dois problemas reais foram encontrados e corrigidos:
   - Botao "Remover" das fotos de vistoria so aparecia com `:hover` (invisivel em touch) — corrigido para ficar sempre visivel em telas pequenas (`opacity-100 sm:opacity-0 sm:group-hover:opacity-100`).
   - Coluna de acoes da tabela de contratos (`/cadastros`) foi reformulada: em telas `sm:` para cima continua como botoes inline; em mobile vira um menu suspenso "Acoes ...", evitando quebra de layout.
@@ -173,3 +173,4 @@ Toda a implementacao inicial do projeto foi entregue em um unico dia (05/07/2026
 | 12/07/2026 | — | Upgrade do plano da instancia AWS Lightsail do WAHA (snapshot + nova instancia, resolvendo instabilidade por falta de memoria) |
 | 12/07/2026 | — | Menu lateral (desktop e mobile) em todas as telas admin, com posicionamento fixo (sticky) ao rolar |
 | 12/07/2026 | — | Correcao de bug: portal do inquilino so mostrava o primeiro contrato (arbitrario); agora lista todos os contratos do inquilino |
+| 12/07/2026 | — | Registro de ocorrencia disponivel direto na pagina inicial do portal do inquilino (antes so existia dentro da pagina de um contrato) |
