@@ -578,6 +578,20 @@ export async function updateContract(input: {
     )
     .run();
 
+  // Charges are snapshotted with their own `original_amount` at generation
+  // time (see charge-scheduler.ts), so updating the contract's monthly_rent
+  // alone leaves any already-generated charge showing the stale value in the
+  // tenant portal. Refresh every not-yet-paid charge of this contract to the
+  // new rent, preserving whatever rateio_amount was folded in on top (see
+  // rateios.ts: original_amount = base rent + rateio_amount).
+  await d1
+    .prepare(
+      `UPDATE charges SET original_amount = ? + COALESCE(rateio_amount, 0)
+       WHERE contract_id = ? AND status != 'paid'`,
+    )
+    .bind(input.monthlyRent, input.id)
+    .run();
+
   if (input.witnessIds) {
     await syncContractWitnesses(d1, input.id, input.witnessIds);
   }
