@@ -6,6 +6,8 @@ import { LogoutButton } from "../components/LogoutButton";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { RateioWorkspace } from "./RateioWorkspace";
 import { HelpChat } from "../components/HelpChat";
+import { AdminSidebar, getAdminNavLinks } from "../components/AdminNav";
+import { MobileSidebar } from "../components/MobileSidebar";
 
 export const dynamic = "force-dynamic";
 
@@ -22,34 +24,47 @@ export default async function RateiosPage() {
   }));
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-5 text-[#0F172A] dark:bg-transparent dark:text-slate-100 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl">
-        <header className="surface-card mb-5 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <Link className="text-sm font-semibold text-[#2563EB] dark:text-blue-400" href="/">
-              Voltar ao painel
-            </Link>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
-              Rateios
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-              Divida qualquer despesa compartilhada entre imoveis (agua,
-              condominio, gas, internet, ou qualquer outra) — escolha a
-              categoria, informe o valor do mes, quais imoveis participam e o
-              valor e somado automaticamente na cobranca do inquilino de cada
-              imovel selecionado.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <LogoutButton />
-          </div>
-        </header>
+    <main className="min-h-screen bg-[#F8FAFC] text-[#0F172A] dark:bg-transparent dark:text-slate-100">
+      <div className="flex min-h-screen">
+        <AdminSidebar active="rateios" />
 
-        <RateioWorkspace
-          initialProperties={propertiesWithResidents}
-          initialRateios={rateios}
-        />
+        <section className="flex-1 px-4 py-5 sm:px-6 lg:px-8">
+          <div className="mb-4 flex items-center justify-between lg:hidden">
+            <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+              Gestao de Alugueis
+            </span>
+            <MobileSidebar links={getAdminNavLinks("rateios")} />
+          </div>
+
+          <div className="mx-auto max-w-6xl">
+            <header className="surface-card mb-5 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <Link className="text-sm font-semibold text-[#2563EB] dark:text-blue-400" href="/">
+                  Voltar ao painel
+                </Link>
+                <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
+                  Rateios
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
+                  Divida qualquer despesa compartilhada entre imoveis (agua,
+                  condominio, gas, internet, ou qualquer outra) — escolha a
+                  categoria, informe o valor do mes, quais imoveis participam e o
+                  valor e somado automaticamente na cobranca do inquilino de cada
+                  imovel selecionado.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <LogoutButton />
+              </div>
+            </header>
+
+            <RateioWorkspace
+              initialProperties={propertiesWithResidents}
+              initialRateios={rateios}
+            />
+          </div>
+        </section>
       </div>
       <HelpChat />
     </main>
