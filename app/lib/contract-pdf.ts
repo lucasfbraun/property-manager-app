@@ -1,10 +1,12 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 
 /**
- * Builds the contract PDF that the tenant reviews and signs: the rendered
- * template text, followed (when present) by the "vistoria" photo record —
- * the property's condition at the start of the lease, embedded directly in
- * the document so the tenant's signature covers both the contract terms and
+ * Builds the contract PDF that the tenant reviews and signs: the "vistoria"
+ * photo record (when present) — the property's condition at the start of
+ * the lease — comes first, followed by the rendered template text (which
+ * ends with the signature clause). This way the tenant sees the documented
+ * state of the property before reading and signing the contract terms,
+ * rather than after, and the signature covers both the contract terms and
  * the photographic record (useful as evidence in a dispute/legal process).
  */
 
@@ -30,11 +32,11 @@ export async function buildContractPdf(input: {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  writeTextSection(pdfDoc, font, boldFont, input.contractText);
-
   if (input.photos.length > 0) {
     await writePhotoSection(pdfDoc, font, boldFont, input.photos);
   }
+
+  writeTextSection(pdfDoc, font, boldFont, input.contractText);
 
   return pdfDoc.save();
 }

@@ -97,29 +97,6 @@ export default async function ContratoPage({
           ) : null}
         </header>
 
-        {contract.contractText ? (
-          <section className="surface-card mb-5 p-6 print:border-none print:bg-white print:p-0 print:shadow-none">
-            <div className="mb-4 grid gap-3 text-sm sm:grid-cols-2 print:hidden">
-              <Info label="Inquilino" value={tenant?.name ?? "-"} />
-              <Info label="Recebedor" value={receiver?.name ?? "-"} />
-              <Info label="Aluguel mensal" value={formatCurrency(contract.monthlyRent)} />
-              <Info
-                label="Periodo"
-                value={`${formatDate(contract.startsAt)} ate ${formatDate(contract.endsAt)}`}
-              />
-            </div>
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-[#0F172A] dark:text-slate-100 print:text-black">
-              {contract.contractText}
-            </pre>
-          </section>
-        ) : (
-          <section className="surface-card p-6 text-sm text-slate-600 dark:text-slate-400 print:hidden">
-            O administrador ainda nao gerou o texto deste contrato a partir de
-            um modelo. Assim que gerado, ele aparecera aqui para download e
-            assinatura.
-          </section>
-        )}
-
         {inspectionPhotos.length > 0 ? (
           <section className="surface-card mb-5 p-6 print:hidden">
             <h2 className="font-semibold">Fotos da vistoria</h2>
@@ -145,6 +122,29 @@ export default async function ContratoPage({
             </div>
           </section>
         ) : null}
+
+        {contract.contractText ? (
+          <section className="surface-card mb-5 p-6 print:border-none print:bg-white print:p-0 print:shadow-none">
+            <div className="mb-4 grid gap-3 text-sm sm:grid-cols-2 print:hidden">
+              <Info label="Inquilino" value={tenant?.name ?? "-"} />
+              <Info label="Recebedor" value={receiver?.name ?? "-"} />
+              <Info label="Aluguel mensal" value={formatCurrency(contract.monthlyRent)} />
+              <Info
+                label="Periodo"
+                value={`${formatDate(contract.startsAt)} ate ${formatDate(contract.endsAt)}`}
+              />
+            </div>
+            <pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-[#0F172A] dark:text-slate-100 print:text-black">
+              {contract.contractText}
+            </pre>
+          </section>
+        ) : (
+          <section className="surface-card p-6 text-sm text-slate-600 dark:text-slate-400 print:hidden">
+            O administrador ainda nao gerou o texto deste contrato a partir de
+            um modelo. Assim que gerado, ele aparecera aqui para download e
+            assinatura.
+          </section>
+        )}
 
         {user.role === "tenant" && contract.contractText ? (
           <div className="print:hidden">
