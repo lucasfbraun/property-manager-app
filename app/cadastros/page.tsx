@@ -4,6 +4,7 @@ import { requireUser } from "../lib/session";
 import { LogoutButton } from "../components/LogoutButton";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { CadastroWorkspace } from "./CadastroWorkspace";
+import { HelpChat } from "../components/HelpChat";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,7 @@ export default async function CadastrosPage({
           initialTenants={data.tenants}
         />
       </div>
+      <HelpChat />
     </main>
   );
 }

@@ -5,6 +5,7 @@ import { requireUser } from "./lib/session";
 import { LogoutButton } from "./components/LogoutButton";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { MobileSidebar, type MobileNavLink } from "./components/MobileSidebar";
+import { HelpChat } from "./components/HelpChat";
 
 const NAV_LINKS: MobileNavLink[] = [
   { active: true, href: "#dashboard", label: "Dashboard" },
@@ -317,6 +318,7 @@ export default async function Home() {
           </section>
         </section>
       </div>
+      <HelpChat />
     </main>
   );
 }

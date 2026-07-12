@@ -5,6 +5,7 @@ import { requireUser } from "../lib/session";
 import { LogoutButton } from "../components/LogoutButton";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { RateioWorkspace } from "./RateioWorkspace";
+import { HelpChat } from "../components/HelpChat";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export default async function RateiosPage() {
           initialRateios={rateios}
         />
       </div>
+      <HelpChat />
     </main>
   );
 }

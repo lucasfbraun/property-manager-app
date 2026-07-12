@@ -1,6 +1,6 @@
 # Andamento do projeto — Gestao de Alugueis
 
-Ultima atualizacao: 11/07/2026
+Ultima atualizacao: 12/07/2026
 
 ## 1. Stack real (diferente da proposta original)
 
@@ -99,6 +99,14 @@ Feature nova (11/07/2026, generalizada no mesmo dia), pensada para o cenario de 
 6. Historico de rateios (com categoria, descricao, detalhamento por imovel e link para o comprovante anexado) fica listado na propria tela `/rateios`.
 
 Implementacao em `app/lib/rateios.ts` (tabelas `rateios` e `rateio_allocations`); rota `app/api/rateios`.
+
+## 9b. Chat de ajuda do painel admin
+
+Feature nova (12/07/2026): botao "?" flutuante, presente so nas telas do admin (Dashboard, Cadastros, Contratos, Rateios, Integracoes) — **nao aparece no portal do inquilino nem no do recebedor**.
+
+- **Sem IA externa**: e uma busca por palavras-chave contra um FAQ estatico (`app/lib/help-content.ts`), servida por `POST /api/help/search` (admin-only). Nao ha chamada a nenhuma API de IA (Claude, OpenAI etc.) e nenhum custo por mensagem.
+- **Nunca acessa dados reais**: a busca so roda sobre o texto fixo do FAQ — nunca consulta o banco (tenants, contracts, charges, tokens do Mercado Pago). Isso elimina de saida o risco de vazar dado sensivel pelo chat.
+- O conteudo do FAQ espelha o `MANUAL-ADMIN.md` (na raiz do projeto), que documenta objetivamente cada funcionalidade do painel: cadastro de inquilino/imovel/recebedor, conexao com o Mercado Pago, contratos e modelos, vistoria, assinatura, ocorrencias, cobranca e Pix, verificar pagamento, recibo, rateios, dashboard e integracoes. Ao adicionar/alterar uma funcionalidade, atualizar os dois (manual + `help-content.ts`) para o chat continuar respondendo certo.
 
 ## 10. Configuracao e segredos necessarios
 

@@ -8,6 +8,7 @@ import { requireUser } from "../lib/session";
 import { LogoutButton } from "../components/LogoutButton";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { ContractsWorkspace } from "./ContractsWorkspace";
+import { HelpChat } from "../components/HelpChat";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,7 @@ export default async function ContratosPage() {
           variables={CONTRACT_TEMPLATE_VARIABLES}
         />
       </div>
+      <HelpChat />
     </main>
   );
 }
