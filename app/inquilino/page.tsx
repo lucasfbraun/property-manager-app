@@ -275,12 +275,19 @@ export default async function TenantPortal() {
                     <Info label="Carencia" value={`${contract.graceDays} dia(s)`} />
                   </dl>
                   {contract.signatureStatus !== "not_generated" ? (
-                    <Link
-                      className="btn-primary mt-4 inline-flex"
-                      href={`/contrato?contractId=${contract.id}`}
-                    >
-                      Ver contrato e assinatura
-                    </Link>
+                    contract.readyForSignature ? (
+                      <Link
+                        className="btn-primary mt-4 inline-flex"
+                        href={`/contrato?contractId=${contract.id}`}
+                      >
+                        Ver contrato e assinatura
+                      </Link>
+                    ) : (
+                      <p className="mt-4 text-xs text-amber-600 dark:text-amber-400">
+                        Aguardando a assinatura das testemunhas e/ou do
+                        proprietario antes da sua vez de assinar.
+                      </p>
+                    )
                   ) : (
                     <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
                       O administrador ainda nao gerou o documento deste contrato.

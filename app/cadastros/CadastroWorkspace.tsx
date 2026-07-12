@@ -4,11 +4,13 @@ import { useMemo, useState } from "react";
 import type {
   Charge,
   Contract,
+  ContractWitness,
+  Owner,
   Property,
   Receiver,
   Tenant,
 } from "../lib/rentals";
-import { formatCurrency } from "../lib/rentals";
+import { formatCurrency, isContractReadyForTenantSignature } from "../lib/rentals";
 
 type DraftState = {
   tenants: Tenant[];
@@ -16,24 +18,31 @@ type DraftState = {
   receivers: Receiver[];
   contracts: Contract[];
   charges: Charge[];
+  owners: Owner[];
+  contractWitnesses: ContractWitness[];
 };
 
 type EditingTarget =
   | { type: "tenant"; id: string }
   | { type: "property"; id: string }
   | { type: "receiver"; id: string }
+  | { type: "owner"; id: string }
   | { type: "contract"; id: string }
   | null;
 
 export function CadastroWorkspace({
   initialCharges,
   initialContracts,
+  initialContractWitnesses,
+  initialOwners,
   initialProperties,
   initialReceivers,
   initialTenants,
 }: {
   initialCharges: Charge[];
   initialContracts: Contract[];
+  initialContractWitnesses: ContractWitness[];
+  initialOwners: Owner[];
   initialProperties: Property[];
   initialReceivers: Receiver[];
   initialTenants: Tenant[];
@@ -41,6 +50,8 @@ export function CadastroWorkspace({
   const [state, setState] = useState<DraftState>({
     charges: initialCharges,
     contracts: initialContracts,
+    contractWitnesses: initialContractWitnesses,
+    owners: initialOwners,
     properties: initialProperties,
     receivers: initialReceivers,
     tenants: initialTenants,
@@ -48,12 +59,14 @@ export function CadastroWorkspace({
   const [message, setMessage] = useState("Pronto para cadastrar.");
   const [isSaving, setIsSaving] = useState(false);
   const [editing, setEditing] = useState<EditingTarget>(null);
+  const [openSignaturesId, setOpenSignaturesId] = useState<string | null>(null);
 
   const totals = useMemo(
     () => ({
       tenants: state.tenants.length,
       properties: state.properties.length,
       receivers: state.receivers.length,
+      owners: state.owners.length,
       contracts: state.contracts.length,
       monthlyRent: state.contracts.reduce(
         (sum, contract) => sum + contract.monthlyRent,
@@ -193,6 +206,53 @@ export function CadastroWorkspace({
     }
   }
 
+  /**
+   * Owner/witnesses have no portal login, so "signing" is the admin
+   * acknowledging (checkbox) that the printed contract was physically
+   * signed by that person. Once every witness and the owner (when the
+   * property has one) are checked, the tenant portal unlocks that
+   * contract's signature step — the tenant always signs last.
+   */
+  async function toggleOwnerSigned(contractId: string, signed: boolean) {
+    setIsSaving(true);
+    try {
+      const response = await fetch("/api/contracts/signatures", {
+        body: JSON.stringify({ contractId, signed, target: "owner" }),
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(result.error ?? "Falha ao atualizar assinatura do proprietario.");
+      }
+      await refreshData();
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function toggleWitnessSigned(contractWitnessId: string, signed: boolean) {
+    setIsSaving(true);
+    try {
+      const response = await fetch("/api/contracts/signatures", {
+        body: JSON.stringify({ contractWitnessId, signed, target: "witness" }),
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(result.error ?? "Falha ao atualizar assinatura da testemunha.");
+      }
+      await refreshData();
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function addTenant(formData: FormData) {
     const name = String(formData.get("name") ?? "").trim();
     const document = String(formData.get("document") ?? "").trim();
@@ -289,6 +349,62 @@ export function CadastroWorkspace({
     }
   }
 
+  async function addOwner(formData: FormData) {
+    const name = String(formData.get("name") ?? "").trim();
+    const document = String(formData.get("document") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
+    const phone = String(formData.get("phone") ?? "").trim();
+    const propertyIds = formData.getAll("propertyIds").map(String);
+    if (!name || !document || !email || !phone) {
+      setMessage("Preencha todos os campos obrigatorios do proprietario.");
+      return;
+    }
+    if (propertyIds.length === 0) {
+      setMessage("Selecione ao menos 1 imovel para o proprietario.");
+      return;
+    }
+
+    try {
+      await sendAndRefresh("POST", "/api/owners", {
+        document,
+        email,
+        name,
+        phone,
+        propertyIds,
+      });
+      setMessage(`Proprietario ${name} salvo no banco.`);
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+    }
+  }
+
+  async function saveOwner(id: string, formData: FormData) {
+    const name = String(formData.get("name") ?? "").trim();
+    const document = String(formData.get("document") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
+    const phone = String(formData.get("phone") ?? "").trim();
+    const propertyIds = formData.getAll("propertyIds").map(String);
+    if (propertyIds.length === 0) {
+      setMessage("Selecione ao menos 1 imovel para o proprietario.");
+      return;
+    }
+
+    try {
+      await sendAndRefresh("PATCH", "/api/owners", {
+        document,
+        email,
+        id,
+        name,
+        phone,
+        propertyIds,
+      });
+      setMessage(`Proprietario ${name} atualizado.`);
+      setEditing(null);
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+    }
+  }
+
   async function addReceiver(formData: FormData) {
     const name = String(formData.get("name") ?? "").trim();
     const document = String(formData.get("document") ?? "").trim();
@@ -348,6 +464,7 @@ export function CadastroWorkspace({
     const monthlyRent = Number(formData.get("monthlyRent") ?? 0);
     const dueDay = Number(formData.get("dueDay") ?? 0);
     const endsAt = String(formData.get("endsAt") ?? "");
+    const witnessIds = formData.getAll("witnessIds").map(String);
     if (!tenantId || !propertyId || !receiverId || monthlyRent <= 0 || !dueDay) {
       setMessage("Preencha os dados obrigatorios do contrato.");
       return;
@@ -361,6 +478,7 @@ export function CadastroWorkspace({
         propertyId,
         receiverId,
         tenantId,
+        witnessIds,
       });
       setMessage("Contrato salvo no banco com recebedor preservado.");
     } catch (error) {
@@ -376,6 +494,7 @@ export function CadastroWorkspace({
     const fineRate = Number(formData.get("fineRate") ?? 0) / 100;
     const monthlyInterestRate = Number(formData.get("monthlyInterestRate") ?? 0) / 100;
     const graceDays = Number(formData.get("graceDays") ?? 0);
+    const witnessIds = formData.getAll("witnessIds").map(String);
 
     try {
       await sendAndRefresh("PATCH", "/api/contracts", {
@@ -387,6 +506,7 @@ export function CadastroWorkspace({
         monthlyInterestRate,
         monthlyRent,
         status,
+        witnessIds,
       });
       setMessage("Contrato atualizado.");
       setEditing(null);
@@ -397,10 +517,11 @@ export function CadastroWorkspace({
 
   return (
     <div className="space-y-5">
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <Metric label="Inquilinos" value={String(totals.tenants)} />
         <Metric label="Imoveis" value={String(totals.properties)} />
         <Metric label="Recebedores" value={String(totals.receivers)} />
+        <Metric label="Proprietarios" value={String(totals.owners)} />
         <Metric label="Contratos" value={String(totals.contracts)} />
         <Metric label="Aluguel mensal" value={formatCurrency(totals.monthlyRent)} />
       </section>
@@ -445,6 +566,18 @@ export function CadastroWorkspace({
             name="type"
             options={["Apartamento", "Casa", "Comercial", "Terreno"]}
           />
+        </FormPanel>
+
+        <FormPanel
+          action={addOwner}
+          description="Cadastro apenas administrativo (sem login/portal). Vincule ao menos 1 imovel."
+          title="Novo proprietario"
+        >
+          <Field label="Nome completo" name="name" />
+          <Field label="CPF/CNPJ" name="document" />
+          <Field label="E-mail" name="email" type="email" />
+          <Field label="Telefone" name="phone" />
+          <PropertyCheckboxList owners={state.owners} properties={state.properties} />
         </FormPanel>
 
         <FormPanel
@@ -498,10 +631,11 @@ export function CadastroWorkspace({
             <Field label="Dia venc." name="dueDay" type="number" />
             <Field label="Fim" name="endsAt" type="date" />
           </div>
+          <WitnessCheckboxList receivers={state.receivers} />
         </FormPanel>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-3">
+      <section className="grid gap-5 xl:grid-cols-4">
         <ManagementPanel
           editingId={editing?.type === "tenant" ? editing.id : null}
           emptyText="Nenhum inquilino cadastrado."
@@ -589,9 +723,55 @@ export function CadastroWorkspace({
               />
             </EditForm>
           )}
-          renderSubtitle={(property) => `${property.address} - ${property.status}`}
+          renderSubtitle={(property) => {
+            const owner = state.owners.find((item) => item.id === property.ownerId);
+            return `${property.address} - ${property.status} - ${
+              owner ? `Proprietario: ${owner.name}` : "Sem proprietario"
+            }`;
+          }}
           renderTitle={(property) => property.name}
           title="Imoveis"
+        />
+
+        <ManagementPanel
+          editingId={editing?.type === "owner" ? editing.id : null}
+          emptyText="Nenhum proprietario cadastrado."
+          isSaving={isSaving}
+          items={state.owners}
+          onDelete={(owner) => deleteAndRefresh("/api/owners", owner.id, owner.name)}
+          onEdit={(owner) => setEditing({ id: owner.id, type: "owner" })}
+          renderEditForm={(owner) => (
+            <EditForm
+              key={owner.id}
+              action={(formData) => saveOwner(owner.id, formData)}
+              onCancel={() => setEditing(null)}
+            >
+              <Field defaultValue={owner.name} label="Nome completo" name="name" />
+              <Field defaultValue={owner.document} label="CPF/CNPJ" name="document" />
+              <Field defaultValue={owner.email} label="E-mail" name="email" type="email" />
+              <Field defaultValue={owner.phone} label="Telefone" name="phone" />
+              <PropertyCheckboxList
+                currentOwnerId={owner.id}
+                defaultSelectedIds={state.properties
+                  .filter((property) => property.ownerId === owner.id)
+                  .map((property) => property.id)}
+                owners={state.owners}
+                properties={state.properties}
+              />
+            </EditForm>
+          )}
+          renderSubtitle={(owner) => {
+            const linkedNames = state.properties
+              .filter((property) => property.ownerId === owner.id)
+              .map((property) => property.name);
+            return `${owner.document} - ${owner.email} - ${
+              linkedNames.length > 0
+                ? `Imoveis: ${linkedNames.join(", ")}`
+                : "Sem imovel vinculado"
+            }`;
+          }}
+          renderTitle={(owner) => owner.name}
+          title="Proprietarios"
         />
 
         <ManagementPanel
@@ -746,6 +926,20 @@ export function CadastroWorkspace({
                               Enviar lembrete WhatsApp
                             </button>
                             <button
+                              className="rounded-md border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-500/30 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
+                              disabled={isSaving}
+                              onClick={() =>
+                                setOpenSignaturesId(
+                                  openSignaturesId === contract.id ? null : contract.id,
+                                )
+                              }
+                              type="button"
+                            >
+                              {openSignaturesId === contract.id
+                                ? "Fechar assinaturas"
+                                : "Assinaturas"}
+                            </button>
+                            <button
                               className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
                               disabled={isSaving}
                               onClick={() =>
@@ -776,6 +970,22 @@ export function CadastroWorkspace({
                           </div>
                         </td>
                       </tr>
+                      {openSignaturesId === contract.id ? (
+                        <tr key={`${contract.id}-signatures`}>
+                          <td className="bg-slate-50 px-3 py-4 dark:bg-white/5" colSpan={8}>
+                            <ContractSignaturePanel
+                              contract={contract}
+                              contractWitnesses={state.contractWitnesses}
+                              isSaving={isSaving}
+                              onToggleOwner={(signed) => toggleOwnerSigned(contract.id, signed)}
+                              onToggleWitness={toggleWitnessSigned}
+                              owners={state.owners}
+                              properties={state.properties}
+                              receivers={state.receivers}
+                            />
+                          </td>
+                        </tr>
+                      ) : null}
                       {isEditingContract ? (
                         <tr key={`${contract.id}-edit`}>
                           <td className="bg-slate-50 px-3 py-4 dark:bg-white/5" colSpan={8}>
@@ -784,7 +994,11 @@ export function CadastroWorkspace({
                               layout="grid"
                               onCancel={() => setEditing(null)}
                             >
-                              <ContractEditFields contract={contract} />
+                              <ContractEditFields
+                                contract={contract}
+                                contractWitnesses={state.contractWitnesses}
+                                receivers={state.receivers}
+                              />
                             </EditForm>
                           </td>
                         </tr>
@@ -831,7 +1045,11 @@ export function CadastroWorkspace({
                       layout="grid"
                       onCancel={() => setEditing(null)}
                     >
-                      <ContractEditFields contract={contract} />
+                      <ContractEditFields
+                        contract={contract}
+                        contractWitnesses={state.contractWitnesses}
+                        receivers={state.receivers}
+                      />
                     </EditForm>
                   ) : (
                     <>
@@ -880,6 +1098,20 @@ export function CadastroWorkspace({
                           Enviar lembrete WhatsApp
                         </button>
                         <button
+                          className="rounded-md border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-500/30 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
+                          disabled={isSaving}
+                          onClick={() =>
+                            setOpenSignaturesId(
+                              openSignaturesId === contract.id ? null : contract.id,
+                            )
+                          }
+                          type="button"
+                        >
+                          {openSignaturesId === contract.id
+                            ? "Fechar assinaturas"
+                            : "Assinaturas"}
+                        </button>
+                        <button
                           className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10"
                           disabled={isSaving}
                           onClick={() => setEditing({ id: contract.id, type: "contract" })}
@@ -902,6 +1134,18 @@ export function CadastroWorkspace({
                           Excluir
                         </button>
                       </div>
+                      {openSignaturesId === contract.id ? (
+                        <ContractSignaturePanel
+                          contract={contract}
+                          contractWitnesses={state.contractWitnesses}
+                          isSaving={isSaving}
+                          onToggleOwner={(signed) => toggleOwnerSigned(contract.id, signed)}
+                          onToggleWitness={toggleWitnessSigned}
+                          owners={state.owners}
+                          properties={state.properties}
+                          receivers={state.receivers}
+                        />
+                      ) : null}
                     </>
                   )}
                 </div>
@@ -915,7 +1159,15 @@ export function CadastroWorkspace({
 }
 
 /** Same seven fields used to edit a contract, shared by the desktop table row and the mobile card. */
-function ContractEditFields({ contract }: { contract: Contract }) {
+function ContractEditFields({
+  contract,
+  contractWitnesses,
+  receivers,
+}: {
+  contract: Contract;
+  contractWitnesses: ContractWitness[];
+  receivers: Receiver[];
+}) {
   return (
     <>
       <Field
@@ -955,6 +1207,14 @@ function ContractEditFields({ contract }: { contract: Contract }) {
         name="graceDays"
         type="number"
       />
+      <div className="sm:col-span-3">
+        <WitnessCheckboxList
+          defaultSelectedIds={contractWitnesses
+            .filter((witness) => witness.contractId === contract.id)
+            .map((witness) => witness.receiverId)}
+          receivers={receivers}
+        />
+      </div>
     </>
   );
 }
@@ -1174,6 +1434,203 @@ function Select({
         })}
       </select>
     </label>
+  );
+}
+
+/**
+ * Multi-select of properties for the owner form, since a property has at
+ * most 1 owner (Property.ownerId) but an owner must be linked to at least 1
+ * property. Checking a property already assigned to a different owner will
+ * reassign it away from that owner on save (assignOwnerProperties in
+ * rental-repository.ts) — the "atual: ..." hint warns the admin before that
+ * happens.
+ */
+function PropertyCheckboxList({
+  currentOwnerId,
+  defaultSelectedIds,
+  owners,
+  properties,
+}: {
+  currentOwnerId?: string;
+  defaultSelectedIds?: string[];
+  owners: Owner[];
+  properties: Property[];
+}) {
+  return (
+    <div className="block text-sm">
+      <span className="font-medium text-slate-700 dark:text-slate-300">
+        Imoveis vinculados
+      </span>
+      <div className="mt-2 space-y-2 rounded-md border border-slate-200 p-3 dark:border-white/10">
+        {properties.length === 0 ? (
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Nenhum imovel cadastrado.
+          </p>
+        ) : (
+          properties.map((property) => {
+            const otherOwner =
+              property.ownerId && property.ownerId !== currentOwnerId
+                ? owners.find((owner) => owner.id === property.ownerId)
+                : null;
+            return (
+              <label className="flex items-center justify-between gap-2" key={property.id}>
+                <span className="flex items-center gap-2">
+                  <input
+                    className="h-4 w-4"
+                    defaultChecked={defaultSelectedIds?.includes(property.id)}
+                    name="propertyIds"
+                    type="checkbox"
+                    value={property.id}
+                  />
+                  {property.name}
+                </span>
+                {otherOwner ? (
+                  <span className="text-xs text-amber-600 dark:text-amber-400">
+                    atual: {otherOwner.name}
+                  </span>
+                ) : null}
+              </label>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Multi-select of receivers acting as witnesses (testemunhas) for a
+ * contract. A contract can have zero or more witnesses; unlike the
+ * owner/property relation this is a plain many-to-many, so there's no
+ * "atual: ..." reassignment warning here — the same receiver can witness
+ * several contracts.
+ */
+function WitnessCheckboxList({
+  defaultSelectedIds,
+  receivers,
+}: {
+  defaultSelectedIds?: string[];
+  receivers: Receiver[];
+}) {
+  return (
+    <div className="block text-sm">
+      <span className="font-medium text-slate-700 dark:text-slate-300">
+        Testemunhas (opcional)
+      </span>
+      <div className="mt-2 space-y-2 rounded-md border border-slate-200 p-3 dark:border-white/10">
+        {receivers.length === 0 ? (
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Nenhum recebedor cadastrado.
+          </p>
+        ) : (
+          receivers.map((receiver) => (
+            <label className="flex items-center gap-2" key={receiver.id}>
+              <input
+                className="h-4 w-4"
+                defaultChecked={defaultSelectedIds?.includes(receiver.id)}
+                name="witnessIds"
+                type="checkbox"
+                value={receiver.id}
+              />
+              {receiver.name}
+            </label>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Checklist the admin uses to acknowledge (checkbox) that the property
+ * owner and each witness physically signed the printed contract, since
+ * neither has a portal/login. Once every box here is checked (owner box is
+ * skipped/considered satisfied when the property has no owner), the tenant
+ * portal unlocks that contract's signature step.
+ */
+function ContractSignaturePanel({
+  contract,
+  contractWitnesses,
+  isSaving,
+  onToggleOwner,
+  onToggleWitness,
+  owners,
+  properties,
+  receivers,
+}: {
+  contract: Contract;
+  contractWitnesses: ContractWitness[];
+  isSaving: boolean;
+  onToggleOwner: (signed: boolean) => void;
+  onToggleWitness: (contractWitnessId: string, signed: boolean) => void;
+  owners: Owner[];
+  properties: Property[];
+  receivers: Receiver[];
+}) {
+  const property = properties.find((item) => item.id === contract.propertyId);
+  const owner = property?.ownerId
+    ? owners.find((item) => item.id === property.ownerId)
+    : undefined;
+  const witnesses = contractWitnesses.filter((witness) => witness.contractId === contract.id);
+  const ready = isContractReadyForTenantSignature(contract, property, contractWitnesses);
+
+  return (
+    <div className="mt-3 space-y-2 rounded-md border border-slate-200 bg-[#F8FAFC] p-3 dark:border-white/10 dark:bg-white/5">
+      <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
+        Ciencia de assinaturas (testemunhas e proprietario assinam antes do inquilino)
+      </p>
+
+      {property?.ownerId ? (
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            checked={Boolean(contract.ownerSignedAt)}
+            className="h-4 w-4"
+            disabled={isSaving}
+            onChange={(event) => onToggleOwner(event.target.checked)}
+            type="checkbox"
+          />
+          Proprietario ({owner?.name ?? "sem cadastro"}) assinou
+        </label>
+      ) : (
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Imovel sem proprietario cadastrado — etapa nao se aplica.
+        </p>
+      )}
+
+      {witnesses.length === 0 ? (
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Nenhuma testemunha selecionada para este contrato.
+        </p>
+      ) : (
+        witnesses.map((witness) => {
+          const receiver = receivers.find((item) => item.id === witness.receiverId);
+          return (
+            <label className="flex items-center gap-2 text-sm" key={witness.id}>
+              <input
+                checked={Boolean(witness.signedAt)}
+                className="h-4 w-4"
+                disabled={isSaving}
+                onChange={(event) => onToggleWitness(witness.id, event.target.checked)}
+                type="checkbox"
+              />
+              Testemunha {receiver?.name ?? "?"} assinou
+            </label>
+          );
+        })
+      )}
+
+      <p
+        className={
+          ready
+            ? "text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+            : "text-xs font-semibold text-amber-600 dark:text-amber-400"
+        }
+      >
+        {ready
+          ? "Pronto: o inquilino ja pode assinar."
+          : "Aguardando assinaturas antes de liberar o inquilino."}
+      </p>
+    </div>
   );
 }
 

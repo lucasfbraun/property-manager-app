@@ -20,6 +20,7 @@ export async function POST(request: Request) {
       propertyId: requiredString(payload.propertyId, "propertyId"),
       receiverId: requiredString(payload.receiverId, "receiverId"),
       tenantId: requiredString(payload.tenantId, "tenantId"),
+      witnessIds: optionalStringArray(payload.witnessIds),
     });
 
     return Response.json({ id }, { status: 201 });
@@ -61,6 +62,7 @@ export async function PATCH(request: Request) {
       monthlyInterestRate,
       monthlyRent,
       status,
+      witnessIds: optionalStringArray(payload.witnessIds),
     });
 
     if (status === "Vence em breve") {
@@ -94,6 +96,13 @@ function requiredString(value: unknown, field: string) {
     throw new Error(`${field} is required`);
   }
   return parsed;
+}
+
+function optionalStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  return value.filter((item): item is string => typeof item === "string" && item.length > 0);
 }
 
 function requiredNumber(

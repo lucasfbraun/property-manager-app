@@ -16,6 +16,8 @@ import {
   tenants,
   type Charge,
   type Contract,
+  type ContractWitness,
+  type Owner,
   type Property,
   type Receiver,
   type SignatureStatus,
@@ -38,6 +40,15 @@ type PropertyRow = {
   address: string;
   type: string;
   status: "available" | "rented" | "maintenance" | "inactive";
+  owner_id: string | null;
+};
+
+type OwnerRow = {
+  id: string;
+  name: string;
+  document: string;
+  email: string;
+  phone: string;
 };
 
 type ReceiverRow = {
@@ -74,6 +85,14 @@ type ContractRow = {
   review_note: string | null;
   generated_document_key: string | null;
   generated_document_updated_at: string | null;
+  owner_signed_at: string | null;
+};
+
+type ContractWitnessRow = {
+  id: string;
+  contract_id: string;
+  receiver_id: string;
+  signed_at: string | null;
 };
 
 type ChargeRow = {
@@ -97,31 +116,44 @@ export type RentalData = {
   receivers: Receiver[];
   contracts: Contract[];
   charges: Charge[];
+  owners: Owner[];
+  contractWitnesses: ContractWitness[];
 };
 
 const CONTRACT_COLUMNS = `id, property_id, tenant_id, receiver_id, monthly_rent, due_day,
   starts_at, ends_at, fine_rate, monthly_interest_rate, grace_days, status,
   template_id, contract_text, signature_status, signed_file_name, signed_uploaded_at,
-  reviewed_at, review_note, generated_document_key, generated_document_updated_at`;
+  reviewed_at, review_note, generated_document_key, generated_document_updated_at, owner_signed_at`;
 
 export async function getRentalData(): Promise<RentalData> {
   const d1 = getD1();
   await ensureRentalDatabase(d1);
 
-  const [tenantRows, propertyRows, receiverRows, contractRows, chargeRows] =
-    await Promise.all([
-      d1.prepare("SELECT * FROM tenants ORDER BY name").all<TenantRow>(),
-      d1.prepare("SELECT * FROM properties ORDER BY name").all<PropertyRow>(),
-      d1.prepare("SELECT * FROM receivers ORDER BY name").all<ReceiverRow>(),
-      d1
-        .prepare(`SELECT ${CONTRACT_COLUMNS} FROM contracts ORDER BY starts_at DESC`)
-        .all<ContractRow>(),
-      d1.prepare("SELECT * FROM charges ORDER BY due_date DESC").all<ChargeRow>(),
-    ]);
+  const [
+    tenantRows,
+    propertyRows,
+    receiverRows,
+    contractRows,
+    chargeRows,
+    ownerRows,
+    contractWitnessRows,
+  ] = await Promise.all([
+    d1.prepare("SELECT * FROM tenants ORDER BY name").all<TenantRow>(),
+    d1.prepare("SELECT * FROM properties ORDER BY name").all<PropertyRow>(),
+    d1.prepare("SELECT * FROM receivers ORDER BY name").all<ReceiverRow>(),
+    d1
+      .prepare(`SELECT ${CONTRACT_COLUMNS} FROM contracts ORDER BY starts_at DESC`)
+      .all<ContractRow>(),
+    d1.prepare("SELECT * FROM charges ORDER BY due_date DESC").all<ChargeRow>(),
+    d1.prepare("SELECT * FROM owners ORDER BY name").all<OwnerRow>(),
+    d1.prepare("SELECT * FROM contract_witnesses ORDER BY id").all<ContractWitnessRow>(),
+  ]);
 
   return {
     charges: chargeRows.results.map(mapCharge),
     contracts: contractRows.results.map(mapContract),
+    contractWitnesses: contractWitnessRows.results.map(mapContractWitness),
+    owners: ownerRows.results.map(mapOwner),
     properties: propertyRows.results.map(mapProperty),
     receivers: receiverRows.results.map(mapReceiver),
     tenants: tenantRows.results.map(mapTenant),
@@ -247,6 +279,17 @@ export async function deleteProperty(id: string) {
   await d1.prepare("DELETE FROM properties WHERE id = ?").bind(id).run();
 }
 
+export async function deleteOwner(id: string) {
+  const d1 = getD1();
+  await ensureRentalDatabase(d1);
+
+  // Owners are admin-only records (no contract references them directly), so
+  // deleting one just releases its properties back to "sem proprietario"
+  // instead of being blocked like tenant/property/receiver/contract deletes.
+  await d1.prepare("UPDATE properties SET owner_id = NULL WHERE owner_id = ?").bind(id).run();
+  await d1.prepare("DELETE FROM owners WHERE id = ?").bind(id).run();
+}
+
 export async function deleteReceiver(id: string) {
   const d1 = getD1();
   await ensureRentalDatabase(d1);
@@ -322,6 +365,77 @@ export async function updateProperty(input: {
     .run();
 }
 
+/**
+ * Owners (proprietarios) are admin-only records: no login/portal, unlike
+ * Tenant/Receiver. Each owner must be linked to at least 1 property, and each
+ * property has at most 1 owner (see Property.ownerId) — so assigning a
+ * property here automatically takes it away from whichever owner had it
+ * before.
+ */
+export async function createOwner(input: {
+  name: string;
+  document: string;
+  email: string;
+  phone: string;
+  propertyIds: string[];
+}) {
+  if (input.propertyIds.length === 0) {
+    throw new Error("Selecione ao menos 1 imovel para o proprietario.");
+  }
+
+  const d1 = getD1();
+  await ensureRentalDatabase(d1);
+  const id = createId("own");
+
+  await d1
+    .prepare("INSERT INTO owners (id, name, document, email, phone) VALUES (?, ?, ?, ?, ?)")
+    .bind(id, input.name, input.document, input.email, input.phone)
+    .run();
+
+  await assignOwnerProperties(d1, id, input.propertyIds);
+
+  return id;
+}
+
+export async function updateOwner(input: {
+  id: string;
+  name: string;
+  document: string;
+  email: string;
+  phone: string;
+  propertyIds: string[];
+}) {
+  if (input.propertyIds.length === 0) {
+    throw new Error("Selecione ao menos 1 imovel para o proprietario.");
+  }
+
+  const d1 = getD1();
+  await ensureRentalDatabase(d1);
+
+  await d1
+    .prepare("UPDATE owners SET name = ?, document = ?, email = ?, phone = ? WHERE id = ?")
+    .bind(input.name, input.document, input.email, input.phone, input.id)
+    .run();
+
+  await assignOwnerProperties(d1, input.id, input.propertyIds);
+}
+
+/** Sets owner_id = ownerId on exactly propertyIds, releasing every other property currently pointing at this owner. */
+async function assignOwnerProperties(d1: D1Binding, ownerId: string, propertyIds: string[]) {
+  const placeholders = propertyIds.map(() => "?").join(", ");
+  await d1
+    .prepare(
+      `UPDATE properties SET owner_id = NULL WHERE owner_id = ? AND id NOT IN (${placeholders})`,
+    )
+    .bind(ownerId, ...propertyIds)
+    .run();
+
+  await d1
+    .prepare(`UPDATE properties SET owner_id = ? WHERE id IN (${placeholders})`)
+    .bind(ownerId, ...propertyIds)
+    .run();
+}
+
 export async function createReceiver(input: {
   name: string;
   document: string;
@@ -388,6 +502,8 @@ export async function createContract(input: {
   monthlyRent: number;
   dueDay: number;
   endsAt: string;
+  /** Receivers acting as witnesses (testemunhas) for this contract. Optional, defaults to none. */
+  witnessIds?: string[];
 }) {
   const d1 = getD1();
   await ensureRentalDatabase(d1);
@@ -417,6 +533,8 @@ export async function createContract(input: {
     )
     .run();
 
+  await syncContractWitnesses(d1, id, input.witnessIds ?? []);
+
   return id;
 }
 
@@ -429,6 +547,8 @@ export async function updateContract(input: {
   fineRate: number;
   monthlyInterestRate: number;
   graceDays: number;
+  /** Receivers acting as witnesses (testemunhas) for this contract. Optional: when omitted, the existing witness list is left untouched. */
+  witnessIds?: string[];
 }) {
   const d1 = getD1();
   await ensureRentalDatabase(d1);
@@ -456,6 +576,68 @@ export async function updateContract(input: {
       input.graceDays,
       input.id,
     )
+    .run();
+
+  if (input.witnessIds) {
+    await syncContractWitnesses(d1, input.id, input.witnessIds);
+  }
+}
+
+/**
+ * Testemunhas (witnesses) are receivers linked to a contract via the
+ * contract_witnesses join table. This reconciles the desired set with what's
+ * already stored: rows for witnesses no longer selected are deleted, rows
+ * for newly selected witnesses are inserted (signed_at starts null), and
+ * rows for witnesses that remain selected are left untouched so an
+ * already-recorded signature isn't lost on an unrelated contract edit.
+ */
+async function syncContractWitnesses(d1: D1Binding, contractId: string, receiverIds: string[]) {
+  const existing = await d1
+    .prepare("SELECT id, receiver_id FROM contract_witnesses WHERE contract_id = ?")
+    .bind(contractId)
+    .all<{ id: string; receiver_id: string }>();
+
+  const desired = new Set(receiverIds);
+  const alreadyLinked = new Set(existing.results.map((row) => row.receiver_id));
+
+  const statements = [];
+  for (const row of existing.results) {
+    if (!desired.has(row.receiver_id)) {
+      statements.push(d1.prepare("DELETE FROM contract_witnesses WHERE id = ?").bind(row.id));
+    }
+  }
+  for (const receiverId of receiverIds) {
+    if (!alreadyLinked.has(receiverId)) {
+      statements.push(
+        d1
+          .prepare(
+            "INSERT INTO contract_witnesses (id, contract_id, receiver_id, signed_at) VALUES (?, ?, ?, NULL)",
+          )
+          .bind(createId("wit"), contractId, receiverId),
+      );
+    }
+  }
+
+  if (statements.length > 0) {
+    await d1.batch(statements);
+  }
+}
+
+export async function setContractOwnerSigned(contractId: string, signed: boolean) {
+  const d1 = getD1();
+  await ensureRentalDatabase(d1);
+  await d1
+    .prepare("UPDATE contracts SET owner_signed_at = ? WHERE id = ?")
+    .bind(signed ? new Date().toISOString() : null, contractId)
+    .run();
+}
+
+export async function setContractWitnessSigned(contractWitnessId: string, signed: boolean) {
+  const d1 = getD1();
+  await ensureRentalDatabase(d1);
+  await d1
+    .prepare("UPDATE contract_witnesses SET signed_at = ? WHERE id = ?")
+    .bind(signed ? new Date().toISOString() : null, contractWitnessId)
     .run();
 }
 
@@ -488,6 +670,17 @@ export async function ensureRentalDatabase(d1: D1Binding = getD1()) {
     d1.prepare(
       "CREATE TABLE IF NOT EXISTS payments (id text PRIMARY KEY NOT NULL, charge_id text NOT NULL, amount_paid real NOT NULL, net_amount real, fees real, method text NOT NULL, status text NOT NULL, paid_at text, external_id text)",
     ),
+    // Proprietarios (owners): admin-only records, no login. Exactly 1 owner
+    // per property (see properties.owner_id below).
+    d1.prepare(
+      "CREATE TABLE IF NOT EXISTS owners (id text PRIMARY KEY NOT NULL, name text NOT NULL, document text NOT NULL, email text NOT NULL, phone text NOT NULL)",
+    ),
+    // Testemunhas (witnesses) linked to a contract, sourced from the
+    // receivers list. signed_at is set by the admin once the printed
+    // contract has been physically signed by that witness.
+    d1.prepare(
+      "CREATE TABLE IF NOT EXISTS contract_witnesses (id text PRIMARY KEY NOT NULL, contract_id text NOT NULL, receiver_id text NOT NULL, signed_at text)",
+    ),
   ]);
 
   // `receivers` may already exist from before authentication was added, so
@@ -517,6 +710,14 @@ export async function ensureRentalDatabase(d1: D1Binding = getD1()) {
   // for this contract (set to "Vence em breve"), so it isn't repeated on
   // every unrelated edit while the status stays the same.
   await ensureColumn(d1, "contracts", "expiring_reminder_sent_at", "expiring_reminder_sent_at text");
+  // Links a property to its proprietario (owners table above). Nullable so
+  // existing properties keep working until an owner is assigned.
+  await ensureColumn(d1, "properties", "owner_id", "owner_id text REFERENCES owners(id)");
+  // Admin acknowledgement that the property owner physically signed the
+  // printed contract. Gates the tenant's turn to sign (see
+  // isContractReadyForTenantSignature in app/lib/rentals.ts) — the tenant
+  // always signs last.
+  await ensureColumn(d1, "contracts", "owner_signed_at", "owner_signed_at text");
 
   await ensureContractDocumentTables(d1);
   await ensureInspectionTables(d1);
@@ -783,6 +984,7 @@ function mapProperty(row: PropertyRow): Property {
     address: row.address,
     id: row.id,
     name: row.name,
+    ownerId: row.owner_id ?? null,
     status:
       row.status === "rented"
         ? "Alugado"
@@ -790,6 +992,16 @@ function mapProperty(row: PropertyRow): Property {
           ? "Manutencao"
           : "Disponivel",
     type: row.type,
+  };
+}
+
+function mapOwner(row: OwnerRow): Owner {
+  return {
+    document: row.document,
+    email: row.email,
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
   };
 }
 
@@ -807,6 +1019,15 @@ function mapReceiver(row: ReceiverRow): Receiver {
   };
 }
 
+function mapContractWitness(row: ContractWitnessRow): ContractWitness {
+  return {
+    contractId: row.contract_id,
+    id: row.id,
+    receiverId: row.receiver_id,
+    signedAt: row.signed_at,
+  };
+}
+
 function mapContract(row: ContractRow): Contract {
   return {
     contractText: row.contract_text,
@@ -819,6 +1040,7 @@ function mapContract(row: ContractRow): Contract {
     id: row.id,
     monthlyInterestRate: row.monthly_interest_rate,
     monthlyRent: row.monthly_rent,
+    ownerSignedAt: row.owner_signed_at,
     propertyId: row.property_id,
     receiverId: row.receiver_id,
     reviewNote: row.review_note,

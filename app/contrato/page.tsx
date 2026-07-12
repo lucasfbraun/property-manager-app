@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getRentalData } from "../lib/rental-repository";
 import { requireUser } from "../lib/session";
-import { signatureStatusLabel } from "../lib/rentals";
+import { isContractReadyForTenantSignature, signatureStatusLabel } from "../lib/rentals";
 import { formatCurrency, formatDate } from "../lib/rentals";
 import { listInspectionPhotos } from "../lib/inspections";
 import { LogoutButton } from "../components/LogoutButton";
@@ -51,6 +51,11 @@ export default async function ContratoPage({
   const property = rentalData.properties.find((item) => item.id === contract.propertyId);
   const receiver = rentalData.receivers.find((item) => item.id === contract.receiverId);
   const inspectionPhotos = await listInspectionPhotos(contract.id);
+  const readyForSignature = isContractReadyForTenantSignature(
+    contract,
+    property,
+    rentalData.contractWitnesses,
+  );
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] px-4 py-5 text-[#0F172A] dark:bg-transparent dark:text-slate-100 sm:px-6 lg:px-8 print:bg-white print:px-0 print:py-0 print:text-black">
@@ -148,11 +153,19 @@ export default async function ContratoPage({
 
         {user.role === "tenant" && contract.contractText ? (
           <div className="print:hidden">
-            <SignedContractUpload
-              contractId={contract.id}
-              signatureStatus={contract.signatureStatus}
-              signedFileName={contract.signedFileName}
-            />
+            {readyForSignature ? (
+              <SignedContractUpload
+                contractId={contract.id}
+                signatureStatus={contract.signatureStatus}
+                signedFileName={contract.signedFileName}
+              />
+            ) : (
+              <section className="surface-card p-6 text-sm text-amber-700 dark:text-amber-300">
+                Aguardando a assinatura das testemunhas e/ou do proprietario.
+                Voce podera assinar assim que o administrador confirmar que
+                todos ja assinaram o contrato impresso.
+              </section>
+            )}
           </div>
         ) : null}
 

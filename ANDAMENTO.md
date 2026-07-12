@@ -23,7 +23,7 @@ Toda a configuracao de bindings (D1, R2, cron) fica centralizada em `wrangler.js
 - `requireUser()` para paginas (redireciona se nao autorizado) e `requireApiUser()` para rotas de API (retorna 401 em JSON) — ambos em `app/lib/session.ts`.
 - Todas as rotas de API de CRUD (`tenants`, `properties`, `receivers`, `contracts`, `rentals`) exigem `admin` autenticado.
 
-## 3. CRUDs (inquilinos, imoveis, recebedores, contratos)
+## 3. CRUDs (inquilinos, imoveis, recebedores, proprietarios, contratos)
 
 Status: **funcionais**, com criacao, edicao completa, exclusao (com guarda de vinculos) e validacao de campos obrigatorios em todas as entidades. Revisados via auditoria de codigo em 05/07/2026 (testes ao vivo no navegador nao foram possiveis nesta sessao por indisponibilidade da extensao Chrome; recomenda-se um teste manual de ponta a ponta antes de considerar encerrado).
 
@@ -31,6 +31,9 @@ Pontos confirmados na auditoria:
 - Formularios desabilitam os botoes durante o salvamento (`isSaving`) e mostram estado de carregamento.
 - Exclusao possui checagem de dependencias (ex.: nao apaga imovel/inquilino com contrato ativo vinculado).
 - Erros de validacao retornam mensagem clara ao usuario.
+- Nao existe restricao de CPF/CNPJ unico entre cadastros: inquilino e recebedor podem compartilhar o mesmo documento (ex.: a mesma pessoa cadastrada nos dois papeis), por decisao explicita.
+
+**Cadastro de proprietarios (adicionado em 12/07/2026):** nova entidade `owners`, distinta de inquilino/imovel/recebedor — e um cadastro **somente administrativo** (sem login, sem portal proprio), com nome, CPF/CNPJ, e-mail e telefone. Regra de negocio: **1 imovel = 1 proprietario** (coluna `owner_id` em `properties`, nullable para nao quebrar imoveis existentes sem proprietario ainda atribuido); um proprietario precisa estar vinculado a **pelo menos 1 imovel** (validado tanto na API quanto no formulario). A tela `/cadastros` ganhou um formulario "Novo proprietario" com selecao de imoveis por checkbox — marcar um imovel que ja pertencia a outro proprietario o transfere automaticamente, com aviso visual antes de salvar (`atual: NomeDoOutroProprietario`). Excluir um proprietario libera (nao apaga) os imoveis vinculados a ele. Confirmado (12/07/2026): um mesmo proprietario pode ser vinculado a **varios imoveis** — a lista de imoveis no formulario e de checkbox multiplo, entao nao ha limite de quantos imoveis um proprietario pode ter; a regra "1 imovel = 1 proprietario" se aplica apenas no sentido inverso (cada imovel individual so pode apontar para 1 proprietario por vez). Arquivos principais: `app/lib/rentals.ts` (tipo `Owner`, `Property.ownerId`), `app/lib/rental-repository.ts` (tabela `owners`, `createOwner`/`updateOwner`/`deleteOwner`), `app/api/owners/route.ts`, `app/cadastros/CadastroWorkspace.tsx` (`PropertyCheckboxList`).
 
 ## 4. Contratos: templates, geracao e assinatura eletronica
 
@@ -48,6 +51,10 @@ Status possiveis: `not_generated`, `awaiting_signature`, `in_review`, `approved`
 O armazenamento do PDF assinado foi migrado de blob no D1 para o **Cloudflare R2** (bucket `property-manager-signed-contracts`), por ser mais barato e adequado ao volume esperado (poucos contratos).
 
 **Bug corrigido (12/07/2026):** o portal do inquilino (`/inquilino`) so exibia o **primeiro** contrato do inquilino (`portal.contracts[0]`), escolhido de forma arbitraria pela ordem da consulta. Um inquilino com mais de um contrato (ex.: um antigo encerrado e um novo aguardando assinatura) podia nao ver o link "Ver contrato e assinatura" do contrato que realmente precisava de acao, sem nenhuma forma de acessa-lo. Corrigido para listar **todos** os contratos do inquilino, cada um com seu proprio status, regras de atraso e link de download/assinatura.
+
+**Testemunhas e ordem de assinatura (adicionado em 12/07/2026):** o cadastro de contrato (`/cadastros`) ganhou uma selecao opcional de **testemunhas**, escolhidas entre os recebedores cadastrados (mais de uma pode ser selecionada). Nova tabela `contract_witnesses` (contract_id, receiver_id, signed_at) guarda o vinculo e, por testemunha, se ja assinou o contrato impresso. O contrato tambem ganhou a coluna `owner_signed_at`, marcada pelo admin quando o proprietario do imovel (ver secao 3) assina.
+
+Regra de negocio: **o inquilino sempre assina por ultimo**. `isContractReadyForTenantSignature()` (`app/lib/rentals.ts`) so libera a etapa de assinatura do inquilino quando: (a) o proprietario do imovel ja assinou — etapa pulada automaticamente se o imovel nao tiver proprietario cadastrado — e (b) todas as testemunhas vinculadas ao contrato ja assinaram — vazio (sem testemunhas) conta como satisfeito. O admin registra essas assinaturas fisicas via um novo painel "Assinaturas" em `/cadastros` (checkbox por testemunha + checkbox do proprietario, sem exigir login deles). Enquanto pendente, o portal do inquilino (`/inquilino`) mostra uma mensagem de espera no lugar do link "Ver contrato e assinatura"; a pagina `/contrato` tambem bloqueia o upload da assinatura do inquilino como segunda camada de protecao (caso a URL seja acessada direto).
 
 ## 5. Cobranca via Pix (Mercado Pago)
 
@@ -174,3 +181,5 @@ Toda a implementacao inicial do projeto foi entregue em um unico dia (05/07/2026
 | 12/07/2026 | — | Menu lateral (desktop e mobile) em todas as telas admin, com posicionamento fixo (sticky) ao rolar |
 | 12/07/2026 | — | Correcao de bug: portal do inquilino so mostrava o primeiro contrato (arbitrario); agora lista todos os contratos do inquilino |
 | 12/07/2026 | — | Registro de ocorrencia disponivel direto na pagina inicial do portal do inquilino (antes so existia dentro da pagina de um contrato) |
+| 12/07/2026 | — | Cadastro de proprietarios (admin-only, sem login), vinculado a imoveis (1 imovel = 1 proprietario, 1 proprietario pode ter varios imoveis) |
+| 12/07/2026 | — | Testemunhas no cadastro de contrato + ordem de assinatura (proprietario e testemunhas assinam antes; inquilino sempre assina por ultimo) |

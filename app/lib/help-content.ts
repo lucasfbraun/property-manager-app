@@ -19,10 +19,10 @@ export type HelpEntry = {
 export const HELP_ENTRIES: HelpEntry[] = [
   {
     answer:
-      "Admin: acesso total ao painel (Dashboard, Cadastros, Contratos, Rateios, Integracoes) e o unico que ve este chat de ajuda. Inquilino: portal proprio em /inquilino (cobrancas, Pix, contrato, ocorrencias). Recebedor: portal proprio em /recebedor, so leitura das cobrancas e contratos vinculados a ele.",
+      "Admin: acesso total ao painel (Dashboard, Cadastros, Contratos, Rateios, Integracoes) e o unico que ve este chat de ajuda. Inquilino: portal proprio em /inquilino (cobrancas, Pix, contrato, ocorrencias). Recebedor: portal proprio em /recebedor, so leitura das cobrancas e contratos vinculados a ele. Proprietario: apenas um cadastro administrativo (sem login/portal), usado para registrar o dono de cada imovel.",
     id: "papeis",
-    keywords: ["papel", "papeis", "perfil", "perfis", "permissao", "permissoes", "acesso", "login", "usuario", "admin", "administrador", "inquilino", "recebedor", "portal"],
-    title: "Quais sao os papeis de usuario (admin, inquilino, recebedor)?",
+    keywords: ["papel", "papeis", "perfil", "perfis", "permissao", "permissoes", "acesso", "login", "usuario", "admin", "administrador", "inquilino", "recebedor", "proprietario", "portal"],
+    title: "Quais sao os papeis de usuario (admin, inquilino, recebedor, proprietario)?",
   },
   {
     answer:
@@ -40,6 +40,13 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     answer:
+      "Va em Cadastros > 'Novo proprietario'. Preencha nome completo, CPF/CNPJ, e-mail e telefone, e marque na lista de imoveis quais pertencem a ele (pelo menos 1 e obrigatorio). Diferente de inquilino e recebedor, proprietario e so cadastro — sem senha, sem portal. Cada imovel tem exatamente 1 proprietario: se voce marcar um imovel que ja pertencia a outro proprietario, ele e transferido automaticamente (a tela avisa com 'atual: NomeDoOutroProprietario' antes de salvar). Excluir um proprietario libera os imoveis dele, sem apaga-los.",
+    id: "cadastrar-proprietario",
+    keywords: ["cadastrar", "cadastro", "criar", "novo", "proprietario", "proprietarios", "dono", "dono do imovel", "transferir imovel"],
+    title: "Como cadastrar um proprietario e vincular imoveis a ele?",
+  },
+  {
+    answer:
       "Va em Cadastros > 'Novo recebedor'. Preencha nome, CPF/CNPJ, e-mail e conta Mercado Pago (campo informativo). Senha de acesso ao portal do recebedor e opcional.",
     id: "cadastrar-recebedor",
     keywords: ["cadastrar", "cadastro", "criar", "novo", "recebedor", "recebedores"],
@@ -54,9 +61,9 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     answer:
-      "Va em Cadastros > 'Novo contrato'. Escolha inquilino, imovel e recebedor, informe valor do aluguel, dia de vencimento e data de fim. O recebedor fica gravado no contrato e e copiado para cada cobranca gerada, preservando o historico mesmo se o contrato mudar depois. Para editar (valor, vencimento, status, multa, juros, carencia), use o botao 'Editar' na tabela ou nos cards de Contratos cadastrados.",
+      "Va em Cadastros > 'Novo contrato'. Escolha inquilino, imovel e recebedor, informe valor do aluguel, dia de vencimento, data de fim e, se quiser, marque uma ou mais testemunhas (qualquer recebedor cadastrado pode ser testemunha). Para editar (valor, vencimento, status, multa, juros, carencia, testemunhas), use o botao 'Editar' na tabela ou nos cards de Contratos cadastrados.",
     id: "cadastrar-contrato",
-    keywords: ["cadastrar", "cadastro", "criar", "novo", "contrato", "editar contrato", "multa", "juros", "carencia", "vencimento"],
+    keywords: ["cadastrar", "cadastro", "criar", "novo", "contrato", "editar contrato", "multa", "juros", "carencia", "vencimento", "testemunha", "testemunhas"],
     title: "Como cadastrar (ou editar) um contrato?",
   },
   {
@@ -82,10 +89,10 @@ export const HELP_ENTRIES: HelpEntry[] = [
   },
   {
     answer:
-      "Depois que o admin gera o contrato, o inquilino ve o texto e as fotos da vistoria no proprio portal (/inquilino > 'Ver contrato e assinatura'), baixa o PDF, assina (manual ou digitalmente) e faz upload do arquivo assinado. Isso entra na fila 'Aprovacao de contratos assinados' (tela Contratos), onde o admin pode ver o documento, aprovar ou rejeitar (com observacao opcional). Status possiveis: nao gerado, aguardando assinatura, em analise, aprovado, rejeitado.",
+      "O inquilino sempre assina por ultimo. Depois de gerar o contrato, va em Cadastros, botao 'Assinaturas' na linha do contrato, e marque cada testemunha e o proprietario do imovel (se houver um cadastrado) conforme forem assinando o contrato impresso. So depois que todos estiverem marcados o portal do inquilino libera o link 'Ver contrato e assinatura' (antes disso ele ve uma mensagem de espera). Se o imovel nao tiver proprietario cadastrado, essa etapa e pulada automaticamente; sem testemunhas selecionadas, essa etapa tambem nao bloqueia nada. Depois de liberado, o inquilino baixa o PDF, assina (manual ou digitalmente) e faz upload do arquivo assinado, que entra na fila 'Aprovacao de contratos assinados' (tela Contratos) para o admin ver o documento, aprovar ou rejeitar (com observacao opcional). Status possiveis: nao gerado, aguardando assinatura, em analise, aprovado, rejeitado.",
     id: "assinatura",
-    keywords: ["assinatura", "assinar", "aprovar contrato", "rejeitar contrato", "upload contrato assinado", "status do contrato"],
-    title: "Como funciona a assinatura e aprovacao do contrato?",
+    keywords: ["assinatura", "assinar", "aprovar contrato", "rejeitar contrato", "upload contrato assinado", "status do contrato", "testemunha", "testemunhas", "ordem de assinatura", "proprietario assinar"],
+    title: "Como funciona a assinatura e aprovacao do contrato (testemunhas, proprietario e inquilino)?",
   },
   {
     answer:

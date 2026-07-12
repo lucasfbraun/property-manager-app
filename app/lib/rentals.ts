@@ -64,6 +64,20 @@ export type Property = {
   address: string;
   type: string;
   status: "Alugado" | "Disponivel" | "Manutencao";
+  /** Owner (proprietario) linked to this property. Null when not yet assigned. */
+  ownerId: string | null;
+};
+
+/**
+ * Property owner (proprietario). Admin-only record — no portal login, unlike
+ * Tenant/Receiver. Exactly one owner per property (see Property.ownerId).
+ */
+export type Owner = {
+  id: string;
+  name: string;
+  document: string;
+  email: string;
+  phone: string;
 };
 
 export type Contract = {
@@ -88,7 +102,47 @@ export type Contract = {
   reviewNote: string | null;
   generatedDocumentKey: string | null;
   generatedDocumentUpdatedAt: string | null;
+  /**
+   * Set by the admin once the property owner (proprietario, see Owner) has
+   * physically signed the printed contract. Null if pending, or simply not
+   * applicable when the property has no owner assigned yet (see
+   * isContractReadyForTenantSignature).
+   */
+  ownerSignedAt: string | null;
 };
+
+/**
+ * A witness (testemunha) attached to a contract, selected from the existing
+ * Receiver list (a receiver can double as a witness). Witnesses have no
+ * portal/login — like Owner, `signedAt` is set by the admin once the
+ * printed contract has been physically signed by that person.
+ */
+export type ContractWitness = {
+  id: string;
+  contractId: string;
+  receiverId: string;
+  signedAt: string | null;
+};
+
+/**
+ * Gate for the tenant's turn to sign: the tenant must always sign LAST.
+ * The owner gate is skipped entirely when the property has no owner
+ * assigned (nothing to wait for); when it does, the owner must have signed.
+ * Every witness attached to the contract must have signed too (vacuously
+ * true when there are none).
+ */
+export function isContractReadyForTenantSignature(
+  contract: Contract,
+  property: Property | undefined,
+  contractWitnesses: ContractWitness[],
+): boolean {
+  const ownerGateOk = !property?.ownerId || Boolean(contract.ownerSignedAt);
+  const relevantWitnesses = contractWitnesses.filter(
+    (witness) => witness.contractId === contract.id,
+  );
+  const witnessesGateOk = relevantWitnesses.every((witness) => witness.signedAt);
+  return ownerGateOk && witnessesGateOk;
+}
 
 export type Charge = {
   id: string;
@@ -181,6 +235,7 @@ export const properties: Property[] = [
     address: "Rua das Palmeiras, 120 - Centro",
     type: "Apartamento",
     status: "Alugado",
+    ownerId: null,
   },
   {
     id: "prop-jardim",
@@ -188,6 +243,7 @@ export const properties: Property[] = [
     address: "Av. Brasil, 450 - Jardim",
     type: "Casa",
     status: "Alugado",
+    ownerId: null,
   },
   {
     id: "prop-sala",
@@ -195,6 +251,7 @@ export const properties: Property[] = [
     address: "Rua XV, 88 - Comercial",
     type: "Comercial",
     status: "Alugado",
+    ownerId: null,
   },
 ];
 
@@ -221,6 +278,7 @@ export const contracts: Contract[] = [
     reviewNote: null,
     generatedDocumentKey: null,
     generatedDocumentUpdatedAt: null,
+    ownerSignedAt: null,
   },
   {
     id: "ctr-1002",
@@ -244,6 +302,7 @@ export const contracts: Contract[] = [
     reviewNote: null,
     generatedDocumentKey: null,
     generatedDocumentUpdatedAt: null,
+    ownerSignedAt: null,
   },
   {
     id: "ctr-1003",
@@ -267,6 +326,7 @@ export const contracts: Contract[] = [
     reviewNote: null,
     generatedDocumentKey: null,
     generatedDocumentUpdatedAt: null,
+    ownerSignedAt: null,
   },
 ];
 
@@ -422,6 +482,7 @@ export function getTenantPortalData(
     receivers: Receiver[];
     contracts: Contract[];
     charges?: Charge[];
+    contractWitnesses?: ContractWitness[];
   },
 ) {
   const activeContracts = data?.contracts ?? contracts;
@@ -429,6 +490,7 @@ export function getTenantPortalData(
   const activeProperties = data?.properties ?? properties;
   const activeReceivers = data?.receivers ?? receivers;
   const activeCharges = data?.charges ?? charges;
+  const activeContractWitnesses = data?.contractWitnesses ?? [];
   const tenant = findById(activeTenants, tenantId);
   const tenantContracts = activeContracts.filter(
     (contract) => contract.tenantId === tenant.id,
@@ -445,11 +507,19 @@ export function getTenantPortalData(
 
   return {
     tenant,
-    contracts: tenantContracts.map((contract) => ({
-      ...contract,
-      property: findById(activeProperties, contract.propertyId),
-      receiver: findById(activeReceivers, contract.receiverId),
-    })),
+    contracts: tenantContracts.map((contract) => {
+      const property = findById(activeProperties, contract.propertyId);
+      return {
+        ...contract,
+        property,
+        receiver: findById(activeReceivers, contract.receiverId),
+        readyForSignature: isContractReadyForTenantSignature(
+          contract,
+          property,
+          activeContractWitnesses,
+        ),
+      };
+    }),
     charges: tenantCharges,
   };
 }
