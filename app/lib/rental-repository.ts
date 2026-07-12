@@ -559,6 +559,12 @@ export async function updateContract(input: {
         ? "closed"
         : "active";
 
+  const previous = await d1
+    .prepare("SELECT monthly_rent FROM contracts WHERE id = ?")
+    .bind(input.id)
+    .first<{ monthly_rent: number }>();
+  const rentChanged = Boolean(previous) && previous!.monthly_rent !== input.monthlyRent;
+
   await d1
     .prepare(
       `UPDATE contracts SET
@@ -578,19 +584,34 @@ export async function updateContract(input: {
     )
     .run();
 
-  // Charges are snapshotted with their own `original_amount` at generation
-  // time (see charge-scheduler.ts), so updating the contract's monthly_rent
-  // alone leaves any already-generated charge showing the stale value in the
-  // tenant portal. Refresh every not-yet-paid charge of this contract to the
-  // new rent, preserving whatever rateio_amount was folded in on top (see
-  // rateios.ts: original_amount = base rent + rateio_amount).
-  await d1
-    .prepare(
-      `UPDATE charges SET original_amount = ? + COALESCE(rateio_amount, 0)
-       WHERE contract_id = ? AND status != 'paid'`,
-    )
-    .bind(input.monthlyRent, input.id)
-    .run();
+  if (rentChanged) {
+    // Charges are snapshotted with their own `original_amount` at generation
+    // time (see charge-scheduler.ts), so updating the contract's monthly_rent
+    // alone leaves any already-generated charge showing the stale value in
+    // the tenant portal. Refresh every not-yet-paid charge of this contract
+    // to the new rent, preserving whatever rateio_amount was folded in on
+    // top (see rateios.ts: original_amount = base rent + rateio_amount).
+    //
+    // Also wipe any Pix QR code already generated for those charges: a Pix
+    // "copia e cola" is created at Mercado Pago with a fixed amount baked
+    // in, so once the rent changes an old QR code would still charge the
+    // previous value even though our own amount field is now correct.
+    // Clearing these fields makes the tenant portal fall back to "gerar
+    // Pix", forcing a fresh QR code with the updated amount.
+    await d1
+      .prepare(
+        `UPDATE charges SET
+          original_amount = ? + COALESCE(rateio_amount, 0),
+          mercado_pago_payment_id = NULL,
+          payment_url = NULL,
+          pix_qr_code = NULL,
+          pix_qr_code_base64 = NULL,
+          pix_expires_at = NULL
+         WHERE contract_id = ? AND status != 'paid'`,
+      )
+      .bind(input.monthlyRent, input.id)
+      .run();
+  }
 
   if (input.witnessIds) {
     await syncContractWitnesses(d1, input.id, input.witnessIds);

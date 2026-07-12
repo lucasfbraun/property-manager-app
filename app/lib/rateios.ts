@@ -298,11 +298,21 @@ async function reverseAppliedAllocations(d1: D1Binding, rateioId: string): Promi
 
   for (const row of allocations.results) {
     if (row.applied_at && row.charge_id) {
+      // Also wipe any already-generated Pix QR code: it was created at
+      // Mercado Pago with the old (still-rateado) amount baked in, so it
+      // must be regenerated once the charge's total changes (same rule as
+      // updateContract in rental-repository.ts). assertNoLinkedPaidCharge
+      // guarantees this charge isn't paid yet.
       await d1
         .prepare(
           `UPDATE charges SET
              original_amount = MAX(0, original_amount - ?),
-             rateio_amount = MAX(0, COALESCE(rateio_amount, 0) - ?)
+             rateio_amount = MAX(0, COALESCE(rateio_amount, 0) - ?),
+             mercado_pago_payment_id = NULL,
+             payment_url = NULL,
+             pix_qr_code = NULL,
+             pix_qr_code_base64 = NULL,
+             pix_expires_at = NULL
            WHERE id = ?`,
         )
         .bind(row.amount, row.amount, row.charge_id)
@@ -494,9 +504,20 @@ export async function applyPendingRateioAllocations(
 
   const total = roundCents(pending.results.reduce((sum, row) => sum + row.amount, 0));
 
+  // Clearing the Pix fields here too: if this charge already had a QR code
+  // generated before the rateio was folded in, that Pix was created at
+  // Mercado Pago for the old (smaller) amount and must be regenerated.
   await d1
     .prepare(
-      "UPDATE charges SET original_amount = original_amount + ?, rateio_amount = COALESCE(rateio_amount, 0) + ? WHERE id = ?",
+      `UPDATE charges SET
+         original_amount = original_amount + ?,
+         rateio_amount = COALESCE(rateio_amount, 0) + ?,
+         mercado_pago_payment_id = NULL,
+         payment_url = NULL,
+         pix_qr_code = NULL,
+         pix_qr_code_base64 = NULL,
+         pix_expires_at = NULL
+       WHERE id = ?`,
     )
     .bind(total, total, chargeId)
     .run();

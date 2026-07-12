@@ -186,3 +186,4 @@ Toda a implementacao inicial do projeto foi entregue em um unico dia (05/07/2026
 | 12/07/2026 | — | Cadastro de proprietarios (admin-only, sem login), vinculado a imoveis (1 imovel = 1 proprietario, 1 proprietario pode ter varios imoveis) |
 | 12/07/2026 | — | Testemunhas no cadastro de contrato + ordem de assinatura (proprietario e testemunhas assinam antes; inquilino sempre assina por ultimo) |
 | 12/07/2026 | — | Edicao e exclusao de rateios (com reversao automatica do valor aplicado nas cobrancas, bloqueado se ja houver cobranca paga) |
+| 12/07/2026 | — | Correcao de bug: editar o valor do contrato (ou de um rateio) agora atualiza o valor de qualquer cobranca ja gerada e nao paga, e invalida o QR code Pix ja emitido para forcar o inquilino a gerar um novo Pix com o valor correto |

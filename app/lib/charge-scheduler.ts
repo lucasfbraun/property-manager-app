@@ -149,9 +149,20 @@ export async function generateChargeForContract(contractId: string): Promise<{
       return { created: false, reference, updated: false };
     }
 
+    // Also wipe any already-generated Pix QR code: it was created at
+    // Mercado Pago with the old amount baked in, so it must be regenerated
+    // once the charge's amount changes (see updateContract in
+    // rental-repository.ts for the same rule).
     await d1
       .prepare(
-        `UPDATE charges SET original_amount = ? + COALESCE(rateio_amount, 0) WHERE id = ?`,
+        `UPDATE charges SET
+          original_amount = ? + COALESCE(rateio_amount, 0),
+          mercado_pago_payment_id = NULL,
+          payment_url = NULL,
+          pix_qr_code = NULL,
+          pix_qr_code_base64 = NULL,
+          pix_expires_at = NULL
+         WHERE id = ?`,
       )
       .bind(contract.monthly_rent, existing.id)
       .run();
