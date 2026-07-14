@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getRentalData } from "../lib/rental-repository";
+import { listAdminUsers } from "../lib/auth-repository";
 import { requireUser } from "../lib/session";
+import { AdminsSection } from "./AdminsSection";
 import { LogoutButton } from "../components/LogoutButton";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { CadastroWorkspace } from "./CadastroWorkspace";
@@ -15,8 +17,9 @@ export default async function CadastrosPage({
 }: {
   searchParams: Promise<{ mpConnected?: string; mpError?: string }>;
 }) {
-  await requireUser(["admin"]);
+  const user = await requireUser(["admin"]);
   const data = await getRentalData();
+  const admins = await listAdminUsers();
   const { mpConnected, mpError } = await searchParams;
 
   return (
@@ -73,6 +76,10 @@ export default async function CadastrosPage({
               initialReceivers={data.receivers}
               initialTenants={data.tenants}
             />
+
+            <div className="mt-8">
+              <AdminsSection currentUserId={user.id} initialAdmins={admins} />
+            </div>
           </div>
         </section>
       </div>

@@ -169,3 +169,130 @@ export async function getSessionUser(
     tenantId: row.tenant_id,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Gestao de usuarios administradores (tela "Administradores" em /cadastros).
+// Admins nao tem registro em tenants/receivers; sao apenas linhas na tabela
+// users com role='admin'.
+
+export type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+};
+
+export async function listAdminUsers(): Promise<AdminUser[]> {
+  const d1 = getD1();
+  const result = await d1
+    .prepare(
+      "SELECT id, name, email, created_at FROM users WHERE role = 'admin' ORDER BY created_at ASC",
+    )
+    .all<{ id: string; name: string; email: string; created_at: string }>();
+
+  return result.results.map((row) => ({
+    createdAt: row.created_at,
+    email: row.email,
+    id: row.id,
+    name: row.name,
+  }));
+}
+
+/** Converte o erro de UNIQUE(users.email) numa mensagem amigavel. */
+function rethrowFriendlyUserError(error: unknown): never {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/UNIQUE constraint failed.*users\.email/i.test(message)) {
+    throw new Error("Ja existe um usuario com este e-mail.");
+  }
+  throw error instanceof Error ? error : new Error(message);
+}
+
+export async function createAdminUser(input: {
+  id: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+}): Promise<void> {
+  try {
+    await createUser({ ...input, role: "admin" });
+  } catch (error) {
+    rethrowFriendlyUserError(error);
+  }
+}
+
+async function getAdminById(id: string): Promise<AdminUser | null> {
+  const d1 = getD1();
+  const row = await d1
+    .prepare(
+      "SELECT id, name, email, created_at FROM users WHERE id = ? AND role = 'admin'",
+    )
+    .bind(id)
+    .first<{ id: string; name: string; email: string; created_at: string }>();
+  if (!row) {
+    return null;
+  }
+  return { createdAt: row.created_at, email: row.email, id: row.id, name: row.name };
+}
+
+export async function updateAdminUser(input: {
+  id: string;
+  name: string;
+  email: string;
+  /** Quando presente, troca a senha; quando ausente, mantem a atual. */
+  passwordHash?: string;
+}): Promise<void> {
+  const d1 = getD1();
+  const existing = await getAdminById(input.id);
+  if (!existing) {
+    throw new Error("Administrador nao encontrado.");
+  }
+
+  try {
+    if (input.passwordHash) {
+      await d1
+        .prepare("UPDATE users SET name = ?, email = ?, password_hash = ? WHERE id = ?")
+        .bind(input.name, input.email, input.passwordHash, input.id)
+        .run();
+    } else {
+      await d1
+        .prepare("UPDATE users SET name = ?, email = ? WHERE id = ?")
+        .bind(input.name, input.email, input.id)
+        .run();
+    }
+  } catch (error) {
+    rethrowFriendlyUserError(error);
+  }
+}
+
+/**
+ * Exclui um administrador. Guardas: nao permite excluir a propria conta
+ * (evita se trancar para fora no meio da sessao) nem o ultimo admin do
+ * sistema (deixaria a ferramenta sem nenhum acesso administrativo).
+ * As sessoes ativas do usuario excluido sao removidas junto (logout
+ * imediato em todos os dispositivos).
+ */
+export async function deleteAdminUser(id: string, currentUserId: string): Promise<void> {
+  if (id === currentUserId) {
+    throw new Error(
+      "Voce nao pode excluir a sua propria conta. Peca a outro administrador.",
+    );
+  }
+
+  const d1 = getD1();
+  const existing = await getAdminById(id);
+  if (!existing) {
+    throw new Error("Administrador nao encontrado.");
+  }
+
+  const count = await d1
+    .prepare("SELECT COUNT(*) AS total FROM users WHERE role = 'admin'")
+    .first<{ total: number }>();
+  if ((count?.total ?? 0) <= 1) {
+    throw new Error("Nao e possivel excluir o unico administrador do sistema.");
+  }
+
+  await d1.batch([
+    d1.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id),
+    d1.prepare("DELETE FROM users WHERE id = ?").bind(id),
+  ]);
+}
