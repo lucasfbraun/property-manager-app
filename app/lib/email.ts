@@ -21,7 +21,7 @@ export async function sendEmail(input: {
   subject: string;
   html: string;
 }): Promise<void> {
-  const apiKey = (env as Record<string, unknown>).RESEND_API_KEY as
+  const apiKey = (env as unknown as Record<string, unknown>).RESEND_API_KEY as
     | string
     | undefined;
 
@@ -33,7 +33,7 @@ export async function sendEmail(input: {
   }
 
   const from =
-    ((env as Record<string, unknown>).RESEND_FROM_EMAIL as string | undefined) ??
+    ((env as unknown as Record<string, unknown>).RESEND_FROM_EMAIL as string | undefined) ??
     "Gestao de Alugueis <onboarding@resend.dev>";
 
   try {

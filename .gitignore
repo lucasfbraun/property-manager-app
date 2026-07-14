@@ -49,3 +49,9 @@ work/node_modules
 # logs
 *.log
 work/*.log
+
+# artefatos de trabalho/QA que nao fazem parte do app
+/work/
+_delete_*
+_*_smoke.mjs
+*.tmp

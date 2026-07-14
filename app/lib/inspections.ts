@@ -1,5 +1,6 @@
 import { getD1, getR2, type D1Binding } from "../../db";
 import { ensureColumn } from "./auth-repository";
+import { createId } from "./ids";
 
 /** Only formats pdf-lib can embed directly (no transcoding pipeline available in Workers). */
 export const ACCEPTED_PHOTO_CONTENT_TYPES = ["image/jpeg", "image/png"] as const;
@@ -110,10 +111,6 @@ export async function ensureInspectionTables(d1: D1Binding = getD1()) {
     "generated_document_updated_at",
     "generated_document_updated_at text",
   );
-}
-
-function createId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function sanitizeFileName(name: string): string {

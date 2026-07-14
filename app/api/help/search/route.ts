@@ -1,5 +1,6 @@
-import { requireApiUser, UnauthorizedError } from "../../../lib/session";
+import { requireApiUser } from "../../../lib/session";
 import { searchHelp } from "../../../lib/help-content";
+import { getErrorMessage, errorStatus } from "../../../lib/api-helpers";
 
 /**
  * Admin-only FAQ search for the in-panel help chat. Deliberately does not
@@ -26,12 +27,4 @@ export async function POST(request: Request) {
   } catch (error) {
     return Response.json({ error: getErrorMessage(error) }, { status: errorStatus(error) });
   }
-}
-
-function errorStatus(error: unknown) {
-  return error instanceof UnauthorizedError ? 401 : 400;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Erro inesperado";
 }

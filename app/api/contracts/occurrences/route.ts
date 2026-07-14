@@ -1,15 +1,14 @@
-import { requireApiUser, UnauthorizedError } from "../../../lib/session";
+import { requireApiUser } from "../../../lib/session";
 import { listAdminEmails } from "../../../lib/contract-documents";
-import {
-  createOccurrence,
+import { createOccurrence,
   listOccurrencesForAdmin,
   listOccurrencesForTenant,
   occurrenceStatusLabel,
   updateOccurrenceStatus,
-  type OccurrenceStatus,
-} from "../../../lib/inspections";
+  type OccurrenceStatus } from "../../../lib/inspections";
 import { ensureRentalDatabase } from "../../../lib/rental-repository";
 import { sendEmail } from "../../../lib/email";
+import { requiredString, getErrorMessage, errorStatus, escapeHtml } from "../../../lib/api-helpers";
 
 const VALID_STATUSES: OccurrenceStatus[] = ["open", "in_review", "resolved"];
 
@@ -107,27 +106,4 @@ export async function PATCH(request: Request) {
   } catch (error) {
     return Response.json({ error: getErrorMessage(error) }, { status: errorStatus(error) });
   }
-}
-
-function requiredString(value: unknown, field: string) {
-  const parsed = typeof value === "string" ? value.trim() : "";
-  if (!parsed) {
-    throw new Error(`${field} is required`);
-  }
-  return parsed;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function errorStatus(error: unknown) {
-  return error instanceof UnauthorizedError ? 401 : 400;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Erro inesperado";
 }

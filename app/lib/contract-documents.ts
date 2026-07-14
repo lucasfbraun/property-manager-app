@@ -3,6 +3,7 @@ import { ensureColumn } from "./auth-repository";
 import { formatCurrency, formatDate, type SignatureStatus } from "./rentals";
 import { loadInspectionPhotosForPdf } from "./inspections";
 import { buildContractPdf } from "./contract-pdf";
+import { createId } from "./ids";
 
 export type ContractTemplate = {
   id: string;
@@ -551,10 +552,6 @@ function mapTemplate(row: ContractTemplateRow): ContractTemplate {
     name: row.name,
     updatedAt: row.updated_at,
   };
-}
-
-function createId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function sanitizeFileName(name: string): string {

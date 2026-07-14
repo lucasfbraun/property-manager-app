@@ -13,7 +13,7 @@ const BEFORE_DUE_LEAD_DAYS = 5;
 const AFTER_DUE_RESEND_DAYS = 3;
 
 function getAppBaseUrl(): string {
-  const config = env as Record<string, unknown>;
+  const config = env as unknown as Record<string, unknown>;
   const base = (config.APP_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "";
   return base;
 }

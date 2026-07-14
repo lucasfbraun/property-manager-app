@@ -1,5 +1,6 @@
-import { requireApiUser, UnauthorizedError } from "../../lib/session";
+import { requireApiUser } from "../../lib/session";
 import { createProperty, deleteProperty, updateProperty } from "../../lib/rental-repository";
+import { requiredString, getErrorMessage, errorStatus } from "../../lib/api-helpers";
 
 export async function POST(request: Request) {
   try {
@@ -49,20 +50,4 @@ export async function DELETE(request: Request) {
   } catch (error) {
     return Response.json({ error: getErrorMessage(error) }, { status: errorStatus(error) });
   }
-}
-
-function requiredString(value: unknown, field: string) {
-  const parsed = typeof value === "string" ? value.trim() : "";
-  if (!parsed) {
-    throw new Error(`${field} is required`);
-  }
-  return parsed;
-}
-
-function errorStatus(error: unknown) {
-  return error instanceof UnauthorizedError ? 401 : 400;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Erro inesperado";
 }

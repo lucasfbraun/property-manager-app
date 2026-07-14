@@ -4,6 +4,7 @@ import {
   getGeneratedDocumentBinary,
 } from "../../../lib/contract-documents";
 import { ensureRentalDatabase } from "../../../lib/rental-repository";
+import { getErrorMessage, errorStatus } from "../../../lib/api-helpers";
 
 /**
  * Streams the generated (unsigned) contract PDF — includes the vistoria
@@ -42,12 +43,4 @@ export async function GET(request: Request) {
   } catch (error) {
     return Response.json({ error: getErrorMessage(error) }, { status: errorStatus(error) });
   }
-}
-
-function errorStatus(error: unknown) {
-  return error instanceof UnauthorizedError ? 401 : 400;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Erro inesperado";
 }

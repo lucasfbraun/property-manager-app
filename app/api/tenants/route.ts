@@ -1,5 +1,6 @@
-import { requireApiUser, UnauthorizedError } from "../../lib/session";
+import { requireApiUser } from "../../lib/session";
 import { createTenant, deleteTenant, updateTenant } from "../../lib/rental-repository";
+import { requiredString, optionalString, getErrorMessage, errorStatus } from "../../lib/api-helpers";
 
 export async function POST(request: Request) {
   try {
@@ -59,18 +60,6 @@ export async function DELETE(request: Request) {
   }
 }
 
-function requiredString(value: unknown, field: string) {
-  const parsed = optionalString(value);
-  if (!parsed) {
-    throw new Error(`${field} is required`);
-  }
-  return parsed;
-}
-
-function optionalString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
 function optionalPositiveInt(value: unknown): number | null {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -80,12 +69,4 @@ function optionalPositiveInt(value: unknown): number | null {
     return null;
   }
   return Math.round(parsed);
-}
-
-function errorStatus(error: unknown) {
-  return error instanceof UnauthorizedError ? 401 : 400;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Erro inesperado";
 }

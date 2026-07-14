@@ -1,12 +1,11 @@
-import {
-  fetchPaymentDetails,
+import { fetchPaymentDetails,
   getChargeStakeholders,
   recordApprovedPayment,
-  validateWebhookSignature,
-} from "../../../lib/mercadopago";
+  validateWebhookSignature } from "../../../lib/mercadopago";
 import { ensureRentalDatabase } from "../../../lib/rental-repository";
 import { sendEmail } from "../../../lib/email";
 import { sendPaymentConfirmedReminder } from "../../../lib/reminders";
+import { escapeHtml } from "../../../lib/api-helpers";
 
 /**
  * Public webhook (Mercado Pago servers call this, no session/cookie
@@ -88,11 +87,4 @@ export async function POST(request: Request) {
     console.error("[webhook mercadopago] erro ao processar notificacao:", error);
     return Response.json({ error: "Erro ao processar notificacao" }, { status: 500 });
   }
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
 }

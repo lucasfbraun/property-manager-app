@@ -8,6 +8,7 @@ import {
   listInspectionPhotos,
 } from "../../../lib/inspections";
 import { ensureRentalDatabase } from "../../../lib/rental-repository";
+import { requiredString, optionalString, getErrorMessage, errorStatus } from "../../../lib/api-helpers";
 
 /**
  * GET ?photoId=... streams the raw image (for <img src="...">).
@@ -100,24 +101,4 @@ export async function DELETE(request: Request) {
   } catch (error) {
     return Response.json({ error: getErrorMessage(error) }, { status: errorStatus(error) });
   }
-}
-
-function requiredString(value: unknown, field: string) {
-  const parsed = optionalString(value);
-  if (!parsed) {
-    throw new Error(`${field} is required`);
-  }
-  return parsed;
-}
-
-function optionalString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function errorStatus(error: unknown) {
-  return error instanceof UnauthorizedError ? 401 : 400;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Erro inesperado";
 }

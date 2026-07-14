@@ -23,6 +23,7 @@ import {
   type SignatureStatus,
   type Tenant,
 } from "./rentals";
+import { createId } from "./ids";
 
 type TenantRow = {
   id: string;
@@ -1140,8 +1141,4 @@ function mapCharge(row: ChargeRow): Charge {
           : "Aberta",
     rateioAmount: row.rateio_amount ?? null,
   };
-}
-
-function createId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }

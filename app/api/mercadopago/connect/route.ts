@@ -1,6 +1,7 @@
-import { requireApiUser, UnauthorizedError } from "../../../lib/session";
+import { requireApiUser } from "../../../lib/session";
 import { getAuthorizationUrl } from "../../../lib/mercadopago";
 import { ensureRentalDatabase } from "../../../lib/rental-repository";
+import { getErrorMessage, errorStatus } from "../../../lib/api-helpers";
 
 export async function GET(request: Request) {
   try {
@@ -17,12 +18,4 @@ export async function GET(request: Request) {
   } catch (error) {
     return Response.json({ error: getErrorMessage(error) }, { status: errorStatus(error) });
   }
-}
-
-function errorStatus(error: unknown) {
-  return error instanceof UnauthorizedError ? 401 : 400;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Erro inesperado";
 }

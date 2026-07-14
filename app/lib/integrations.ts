@@ -112,7 +112,7 @@ export function buildReminderText(message: WhatsAppReminder) {
 }
 
 function getWahaCredentials(): { baseUrl: string; apiKey: string; session: string } {
-  const config = env as Record<string, unknown>;
+  const config = env as unknown as Record<string, unknown>;
   const baseUrl = config[whatsappAutomationConfig.wahaBaseUrlEnv] as string | undefined;
   const apiKey = config[whatsappAutomationConfig.wahaApiKeyEnv] as string | undefined;
   const session =

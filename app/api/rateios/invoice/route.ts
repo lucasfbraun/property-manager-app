@@ -1,6 +1,7 @@
-import { requireApiUser, UnauthorizedError } from "../../../lib/session";
+import { requireApiUser } from "../../../lib/session";
 import { getRateioInvoiceBinary } from "../../../lib/rateios";
 import { ensureRentalDatabase } from "../../../lib/rental-repository";
+import { getErrorMessage, errorStatus } from "../../../lib/api-helpers";
 
 /** Streams the uploaded rateio invoice/receipt (admin only, no tenant access). */
 export async function GET(request: Request) {
@@ -27,12 +28,4 @@ export async function GET(request: Request) {
   } catch (error) {
     return Response.json({ error: getErrorMessage(error) }, { status: errorStatus(error) });
   }
-}
-
-function errorStatus(error: unknown) {
-  return error instanceof UnauthorizedError ? 401 : 400;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Erro inesperado";
 }

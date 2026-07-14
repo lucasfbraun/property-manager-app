@@ -1,5 +1,7 @@
 import { getD1, getR2, type D1Binding } from "../../db";
 import { ensureColumn } from "./auth-repository";
+import { createId } from "./ids";
+import { roundCents, splitByWeights } from "./finance";
 
 /**
  * Rateio (apportionment): the admin enters the total amount of a shared bill
@@ -124,34 +126,6 @@ export async function getResidentInfoForProperties(
   return result;
 }
 
-/**
- * Splits `totalAmount` across `weights` (one non-negative number per key),
- * proportionally. Rounds every share to cents and folds the rounding
- * remainder into the last entry so the shares always add up exactly to
- * `totalAmount`.
- */
-function splitByWeights(
-  totalAmount: number,
-  weights: Array<{ key: string; weight: number }>,
-): Map<string, number> {
-  const totalWeight = weights.reduce((sum, item) => sum + item.weight, 0) || weights.length;
-  const shares = new Map<string, number>();
-  let allocated = 0;
-
-  weights.forEach((item, index) => {
-    const isLast = index === weights.length - 1;
-    if (isLast) {
-      shares.set(item.key, roundCents(totalAmount - allocated));
-      return;
-    }
-    const share = roundCents((totalAmount * item.weight) / totalWeight);
-    shares.set(item.key, share);
-    allocated += share;
-  });
-
-  return shares;
-}
-
 export async function ensureRateioTables(d1: D1Binding = getD1()) {
   await d1
     .prepare(
@@ -194,10 +168,6 @@ export async function ensureRateioTables(d1: D1Binding = getD1()) {
   await ensureColumn(d1, "rateios", "split_mode", "split_mode text DEFAULT 'residents'");
 }
 
-function createId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
 function sanitizeFileName(name: string): string {
   return name.replace(/[^a-zA-Z0-9.\-_]/g, "_").slice(-120);
 }
@@ -224,10 +194,6 @@ function base64ToBytes(base64: string): Uint8Array {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes;
-}
-
-function roundCents(value: number): number {
-  return Math.round(value * 100) / 100;
 }
 
 /**

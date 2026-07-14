@@ -1,6 +1,6 @@
 # Andamento do projeto — Gestao de Alugueis
 
-Ultima atualizacao: 12/07/2026
+Ultima atualizacao: 13/07/2026
 
 ## 1. Stack real (diferente da proposta original)
 
@@ -132,6 +132,20 @@ Feature nova (12/07/2026): envio real de lembretes de cobranca por WhatsApp, sem
 
 Pendente: preferencia do inquilino para desativar lembretes, historico completo de envios (auditoria), e HTTPS entre a Cloudflare e o WAHA.
 
+## 9d. Refatoracao e qualidade de codigo (13/07/2026)
+
+Auditoria de codigo completa seguida de refatoracao estrutural, sem mudanca de comportamento:
+
+- **Helpers de API deduplicados:** `getErrorMessage`/`errorStatus`/`requiredString`/`optionalString`/`escapeHtml` estavam copiados em ate 27 rotas; agora vivem em `app/lib/api-helpers.ts` (variantes divergentes, ex. `errorStatus` 500 de `/api/rentals`, permaneceram locais de proposito).
+- **Logica financeira extraida e testada:** `app/lib/finance.ts` (multa fixa + juros pro rata dia + carencia; divisao de rateio em centavos com residuo na ultima parcela) e `app/lib/billing-cycle.ts` (vencimento do ciclo corrente, rolagem de mes, `Julho/2026`) sao modulos puros, sem imports de Workers/DB. Cobertos por **16 testes unitarios** (`npm test`, runner nativo do Node 22 com `--experimental-strip-types`, nenhuma dependencia nova). `mercadopago.ts`, `charge-scheduler.ts` e `rateios.ts` delegam a eles.
+- **CadastroWorkspace dividido:** de 1.670 para ~870 linhas; extraidos `ui.tsx` (Field/Select/FormPanel/EditForm/Metric), `ManagementPanel.tsx`, `checkbox-lists.tsx`, `contract-components.tsx` (ContractEditFields/PaymentBadge/ContractSignaturePanel), `ContractsSection.tsx` (tabela desktop + cards mobile, com estado proprio do painel de assinaturas) e `support.ts`.
+- **IDs sem risco de colisao:** todos os geradores `Date.now()+Math.random()` (6 arquivos) trocados por `crypto.randomUUID()` via `app/lib/ids.ts`.
+- **`db/schema.ts` sincronizado com o DDL runtime:** o schema Drizzle estava defasado (faltavam ~15 colunas e 5 tabelas criadas pelas funcoes `ensure*`; continha 2 tabelas mortas, `reminders` e `audit_logs`). Agora espelha o schema real e documenta que as `ensure*` sao a fonte de verdade operacional (migrations em `/drizzle` obsoletas).
+- **Limpeza do repositorio:** removidos arquivos de trabalho commitados por engano (`_delete_test*`, `_pdf_*_smoke.mjs`, `work/`) e `.gitignore` ajustado para impedi-los de voltar.
+- **5 erros de tipo pre-existentes corrigidos** (`tsc --noEmit` agora passa limpo): casts de `env` em email/integrations/mercadopago/reminders e o `BodyInit` do recibo em PDF.
+
+**Pendencias de seguranca apontadas na mesma auditoria (fase 30 do cronograma, ainda NAO implementadas):** HTTPS entre Cloudflare e o WAHA; remover as senhas seed hardcoded (`TrocarSenha!2026` do admin e `Demo123!` dos usuarios demo — trocar em producao!); indice UNIQUE em `payments.external_id` (risco de pagamento duplicado com webhooks simultaneos); rate limiting no login; `validateWebhookSignature` fail-closed quando `MP_WEBHOOK_SECRET` nao estiver definido.
+
 ## 10. Configuracao e segredos necessarios
 
 Variaveis/segredos que precisam estar configurados no ambiente Cloudflare Workers:
@@ -187,3 +201,4 @@ Toda a implementacao inicial do projeto foi entregue em um unico dia (05/07/2026
 | 12/07/2026 | — | Testemunhas no cadastro de contrato + ordem de assinatura (proprietario e testemunhas assinam antes; inquilino sempre assina por ultimo) |
 | 12/07/2026 | — | Edicao e exclusao de rateios (com reversao automatica do valor aplicado nas cobrancas, bloqueado se ja houver cobranca paga) |
 | 12/07/2026 | — | Correcao de bug: editar o valor ou o dia de vencimento do contrato (ou de um rateio) agora atualiza qualquer cobranca ja gerada e nao paga (valor e data de vencimento), e invalida o QR code Pix ja emitido para forcar o inquilino a gerar um novo Pix correto |
+| 13/07/2026 | — | Auditoria de codigo + refatoracao: helpers de API deduplicados (27 rotas), modulos financeiros puros com 16 testes unitarios (npm test), CadastroWorkspace dividido em 6 arquivos, IDs via crypto.randomUUID, db/schema.ts sincronizado, limpeza do repositorio e correcao de 5 erros de tipo |

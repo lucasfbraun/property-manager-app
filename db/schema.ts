@@ -1,5 +1,19 @@
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
+/**
+ * ATENCAO - fonte de verdade do schema
+ *
+ * Em producao o schema e provisionado em RUNTIME pelas funcoes `ensure*`
+ * (ensureRentalDatabase em app/lib/rental-repository.ts e as ensure*Tables
+ * de contract-documents/inspections/rateios), nao pelas migrations do
+ * Drizzle. Este arquivo existe como documentacao tipada do schema e para o
+ * drizzle-kit; ele foi sincronizado com o DDL runtime em 2026-07-13.
+ *
+ * Ao adicionar coluna/tabela: altere o `ensure*` correspondente E este
+ * arquivo, na mesma mudanca. As migrations em /drizzle estao obsoletas e nao
+ * devem ser aplicadas por cima de um banco ja provisionado pelo runtime.
+ */
+
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -31,6 +45,8 @@ export const receivers = sqliteTable("receivers", {
   mpRefreshToken: text("mp_refresh_token"),
   mpTokenExpiresAt: text("mp_token_expires_at"),
   mpConnectedAt: text("mp_connected_at"),
+  // 1 = token de producao (APP_USR), 0 = sandbox/TEST (ver mercadopago.ts).
+  mpLiveMode: integer("mp_live_mode"),
 });
 
 export const tenants = sqliteTable("tenants", {
@@ -43,6 +59,16 @@ export const tenants = sqliteTable("tenants", {
   status: text("status", {
     enum: ["active", "inactive", "delinquent", "former"],
   }).notNull(),
+  // Qtde de moradores; usada pelo rateio no modo "residents".
+  residentCount: integer("resident_count"),
+});
+
+export const owners = sqliteTable("owners", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  document: text("document").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
 });
 
 export const properties = sqliteTable("properties", {
@@ -53,6 +79,7 @@ export const properties = sqliteTable("properties", {
   status: text("status", {
     enum: ["available", "rented", "maintenance", "inactive"],
   }).notNull(),
+  ownerId: text("owner_id").references(() => owners.id),
 });
 
 export const contractTemplates = sqliteTable("contract_templates", {
@@ -94,14 +121,29 @@ export const contracts = sqliteTable("contracts", {
       "approved",
       "rejected",
     ],
-  })
-    .notNull()
-    .default("not_generated"),
+  }).default("not_generated"),
   signedDocumentKey: text("signed_document_key"),
   signedFileName: text("signed_file_name"),
   signedUploadedAt: text("signed_uploaded_at"),
   reviewedAt: text("reviewed_at"),
   reviewNote: text("review_note"),
+  // PDF gerado a partir do template (chave R2) + quando foi regenerado.
+  generatedDocumentKey: text("generated_document_key"),
+  generatedDocumentUpdatedAt: text("generated_document_updated_at"),
+  ownerSignedAt: text("owner_signed_at"),
+  // Lembrete de contrato expirando ja enviado (ver reminders.ts).
+  expiringReminderSentAt: text("expiring_reminder_sent_at"),
+});
+
+export const contractWitnesses = sqliteTable("contract_witnesses", {
+  id: text("id").primaryKey(),
+  contractId: text("contract_id")
+    .notNull()
+    .references(() => contracts.id),
+  receiverId: text("receiver_id")
+    .notNull()
+    .references(() => receivers.id),
+  signedAt: text("signed_at"),
 });
 
 export const charges = sqliteTable("charges", {
@@ -123,6 +165,11 @@ export const charges = sqliteTable("charges", {
   pixQrCode: text("pix_qr_code"),
   pixQrCodeBase64: text("pix_qr_code_base64"),
   pixExpiresAt: text("pix_expires_at"),
+  // Parcela de rateio embutida em original_amount (exibicao separada na UI).
+  rateioAmount: real("rateio_amount"),
+  // Controle de lembretes WhatsApp por cobranca (ver reminders.ts).
+  lastReminderEvent: text("last_reminder_event"),
+  lastReminderSentAt: text("last_reminder_sent_at"),
 });
 
 export const payments = sqliteTable("payments", {
@@ -141,30 +188,75 @@ export const payments = sqliteTable("payments", {
   externalId: text("external_id"),
 });
 
-export const reminders = sqliteTable("reminders", {
+export const contractInspectionPhotos = sqliteTable(
+  "contract_inspection_photos",
+  {
+    id: text("id").primaryKey(),
+    contractId: text("contract_id")
+      .notNull()
+      .references(() => contracts.id),
+    r2Key: text("r2_key").notNull(),
+    fileName: text("file_name").notNull(),
+    contentType: text("content_type").notNull(),
+    caption: text("caption"),
+    room: text("room"),
+    position: integer("position").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+  },
+);
+
+export const contractOccurrences = sqliteTable("contract_occurrences", {
   id: text("id").primaryKey(),
-  chargeId: text("charge_id")
+  contractId: text("contract_id")
     .notNull()
-    .references(() => charges.id),
-  channel: text("channel", { enum: ["whatsapp", "email"] }).notNull(),
-  event: text("event", {
-    enum: ["before_due", "due_day", "after_due", "payment_confirmed"],
-  }).notNull(),
-  scheduledAt: text("scheduled_at").notNull(),
-  sentAt: text("sent_at"),
-  status: text("status", {
-    enum: ["scheduled", "sent", "failed", "cancelled"],
-  }).notNull(),
+    .references(() => contracts.id),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenants.id),
+  description: text("description").notNull(),
+  status: text("status").notNull().default("open"),
+  createdAt: text("created_at").notNull(),
+  resolvedAt: text("resolved_at"),
+  resolutionNote: text("resolution_note"),
 });
 
-export const auditLogs = sqliteTable("audit_logs", {
+export const contractOccurrencePhotos = sqliteTable(
+  "contract_occurrence_photos",
+  {
+    id: text("id").primaryKey(),
+    occurrenceId: text("occurrence_id")
+      .notNull()
+      .references(() => contractOccurrences.id),
+    r2Key: text("r2_key").notNull(),
+    fileName: text("file_name").notNull(),
+    contentType: text("content_type").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+);
+
+export const rateios = sqliteTable("rateios", {
   id: text("id").primaryKey(),
-  userId: text("user_id").references(() => users.id),
-  entity: text("entity").notNull(),
-  entityId: text("entity_id").notNull(),
-  action: text("action").notNull(),
-  beforeJson: text("before_json"),
-  afterJson: text("after_json"),
-  justification: text("justification"),
+  category: text("category").notNull().default("outro"),
+  description: text("description"),
+  reference: text("reference").notNull(),
+  totalAmount: real("total_amount").notNull(),
+  invoiceKey: text("invoice_key"),
+  invoiceContentType: text("invoice_content_type"),
+  invoiceFileName: text("invoice_file_name"),
   createdAt: text("created_at").notNull(),
+  // Como o rateio foi dividido ("residents" | "equal"), para reedicao.
+  splitMode: text("split_mode").default("residents"),
+});
+
+export const rateioAllocations = sqliteTable("rateio_allocations", {
+  id: text("id").primaryKey(),
+  rateioId: text("rateio_id")
+    .notNull()
+    .references(() => rateios.id),
+  propertyId: text("property_id")
+    .notNull()
+    .references(() => properties.id),
+  amount: real("amount").notNull(),
+  chargeId: text("charge_id"),
+  appliedAt: text("applied_at"),
 });

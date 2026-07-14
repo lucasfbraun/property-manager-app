@@ -1,6 +1,15 @@
 import { getD1 } from "../../db";
 import { ensureRentalDatabase } from "./rental-repository";
 import { applyPendingRateioAllocations } from "./rateios";
+import { createId } from "./ids";
+import {
+  formatReference,
+  resolveBillingCycleDueDate,
+  todayInSaoPaulo,
+} from "./billing-cycle";
+
+// Re-export para compatibilidade com importadores antigos (reminders.ts).
+export { formatReference, todayInSaoPaulo } from "./billing-cycle";
 
 type ActiveContractRow = {
   id: string;
@@ -10,71 +19,6 @@ type ActiveContractRow = {
   due_day: number;
   status: string;
 };
-
-function pad2(value: number): string {
-  return String(value).padStart(2, "0");
-}
-
-export function todayInSaoPaulo(): string {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-  });
-  return formatter.format(new Date());
-}
-
-function daysInMonth(year: number, month1Based: number): number {
-  return new Date(Date.UTC(year, month1Based, 0)).getUTCDate();
-}
-
-/**
- * Finds the due date for the contract's current billing cycle: this
- * month's occurrence of `dueDay`, or next month's if this month's already
- * happened more than ~10 days ago (so a daily cron doesn't keep targeting a
- * date that's long gone).
- */
-function resolveBillingCycleDueDate(
-  dueDay: number,
-  todayIso: string,
-): { dueDateIso: string; daysUntilDue: number } {
-  const [year, month] = todayIso.split("-").map(Number);
-  const day = Math.min(dueDay, daysInMonth(year, month));
-  const candidateIso = `${year}-${pad2(month)}-${pad2(day)}`;
-
-  const candidateDate = new Date(`${candidateIso}T12:00:00-03:00`);
-  const todayDate = new Date(`${todayIso}T12:00:00-03:00`);
-  const diffDays = Math.round((candidateDate.getTime() - todayDate.getTime()) / 86_400_000);
-
-  if (diffDays < -10) {
-    let nextMonth = month + 1;
-    let nextYear = year;
-    if (nextMonth > 12) {
-      nextMonth = 1;
-      nextYear += 1;
-    }
-    const nextDay = Math.min(dueDay, daysInMonth(nextYear, nextMonth));
-    const nextIso = `${nextYear}-${pad2(nextMonth)}-${pad2(nextDay)}`;
-    const nextDate = new Date(`${nextIso}T12:00:00-03:00`);
-    const nextDiff = Math.round((nextDate.getTime() - todayDate.getTime()) / 86_400_000);
-    return { daysUntilDue: nextDiff, dueDateIso: nextIso };
-  }
-
-  return { daysUntilDue: diffDays, dueDateIso: candidateIso };
-}
-
-export function formatReference(dueDateIso: string): string {
-  const date = new Date(`${dueDateIso}T12:00:00-03:00`);
-  const formatted = new Intl.DateTimeFormat("pt-BR", {
-    month: "long",
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-  }).format(date);
-  const [monthName, , year] = formatted.split(" ");
-  const capitalized = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-  return `${capitalized}/${year}`;
-}
 
 /** How many days before the due date the charge/Pix becomes available. */
 const GENERATE_LEAD_DAYS = 5;
@@ -98,7 +42,7 @@ async function insertCharge(input: {
   reference: string;
 }): Promise<string> {
   const d1 = getD1();
-  const id = `chg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const id = createId("chg");
   await d1
     .prepare(
       `INSERT INTO charges (id, contract_id, receiver_id, reference, due_date, original_amount, status)

@@ -1,5 +1,6 @@
 import { requireApiUser, UnauthorizedError } from "../../lib/session";
 import { getRentalData } from "../../lib/rental-repository";
+import { getErrorMessage } from "../../lib/api-helpers";
 
 export async function GET() {
   try {
@@ -15,8 +16,4 @@ export async function GET() {
 
 function errorStatus(error: unknown) {
   return error instanceof UnauthorizedError ? 401 : 500;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Erro inesperado";
 }

@@ -2,6 +2,7 @@ import { requireApiUser, UnauthorizedError } from "../../../lib/session";
 import { getChargeStatus, getChargeTenantId } from "../../../lib/mercadopago";
 import { buildReceiptPdf } from "../../../lib/receipt-pdf";
 import { ensureRentalDatabase } from "../../../lib/rental-repository";
+import { getErrorMessage, errorStatus } from "../../../lib/api-helpers";
 
 /**
  * Streams the payment receipt PDF for a paid charge. Content is fixed/
@@ -36,7 +37,9 @@ export async function GET(request: Request) {
 
     const bytes = await buildReceiptPdf();
 
-    return new Response(bytes, {
+    // Copia para um ArrayBuffer "puro": o tipo BodyInit do Workers nao
+    // aceita Uint8Array<ArrayBufferLike> diretamente.
+    return new Response(bytes.slice().buffer as ArrayBuffer, {
       headers: {
         "Content-Disposition": `inline; filename="recibo-${chargeId}.pdf"`,
         "Content-Type": "application/pdf",
@@ -45,12 +48,4 @@ export async function GET(request: Request) {
   } catch (error) {
     return Response.json({ error: getErrorMessage(error) }, { status: errorStatus(error) });
   }
-}
-
-function errorStatus(error: unknown) {
-  return error instanceof UnauthorizedError ? 401 : 400;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Erro inesperado";
 }

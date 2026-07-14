@@ -1,15 +1,12 @@
 import { cookies } from "next/headers";
-import {
-  verifyPassword,
+import { verifyPassword,
   buildSessionCookie,
   SESSION_COOKIE_NAME,
-  SESSION_TTL_SECONDS,
-} from "../../../lib/auth";
-import {
-  createSession,
-  findUserByEmail,
-} from "../../../lib/auth-repository";
+  SESSION_TTL_SECONDS } from "../../../lib/auth";
+import { createSession,
+  findUserByEmail } from "../../../lib/auth-repository";
 import { ensureRentalDatabase } from "../../../lib/rental-repository";
+import { getErrorMessage } from "../../../lib/api-helpers";
 
 export async function POST(request: Request) {
   try {
@@ -61,8 +58,4 @@ export async function POST(request: Request) {
   } catch (error) {
     return Response.json({ error: getErrorMessage(error) }, { status: 401 });
   }
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Erro inesperado";
 }

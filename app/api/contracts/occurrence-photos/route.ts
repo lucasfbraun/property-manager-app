@@ -1,6 +1,7 @@
 import { requireApiUser, UnauthorizedError } from "../../../lib/session";
 import { getOccurrencePhotoBinary, getTenantIdForOccurrencePhoto } from "../../../lib/inspections";
 import { ensureRentalDatabase } from "../../../lib/rental-repository";
+import { getErrorMessage, errorStatus } from "../../../lib/api-helpers";
 
 /** Streams a single occurrence photo (for <img src="...">). */
 export async function GET(request: Request) {
@@ -34,12 +35,4 @@ export async function GET(request: Request) {
   } catch (error) {
     return Response.json({ error: getErrorMessage(error) }, { status: errorStatus(error) });
   }
-}
-
-function errorStatus(error: unknown) {
-  return error instanceof UnauthorizedError ? 401 : 400;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Erro inesperado";
 }

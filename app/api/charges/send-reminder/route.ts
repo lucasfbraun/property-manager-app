@@ -1,7 +1,8 @@
-import { requireApiUser, UnauthorizedError } from "../../../lib/session";
+import { requireApiUser } from "../../../lib/session";
 import { getLatestChargeIdForContract } from "../../../lib/mercadopago";
 import { sendChargeReminder } from "../../../lib/reminders";
 import { ensureRentalDatabase } from "../../../lib/rental-repository";
+import { requiredString, getErrorMessage, errorStatus } from "../../../lib/api-helpers";
 
 /**
  * Manual "Enviar lembrete WhatsApp" button (admin only): sends whichever
@@ -25,20 +26,4 @@ export async function POST(request: Request) {
   } catch (error) {
     return Response.json({ error: getErrorMessage(error) }, { status: errorStatus(error) });
   }
-}
-
-function requiredString(value: unknown, field: string) {
-  const parsed = typeof value === "string" ? value.trim() : "";
-  if (!parsed) {
-    throw new Error(`${field} is required`);
-  }
-  return parsed;
-}
-
-function errorStatus(error: unknown) {
-  return error instanceof UnauthorizedError ? 401 : 400;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Erro inesperado";
 }

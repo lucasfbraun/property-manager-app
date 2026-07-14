@@ -1,5 +1,7 @@
 import { env } from "cloudflare:workers";
 import { getD1 } from "../../db";
+import { computeAmountDue } from "./finance";
+import { createId } from "./ids";
 
 const MP_OAUTH_AUTHORIZE_URL = "https://auth.mercadopago.com/authorization";
 const MP_OAUTH_TOKEN_URL = "https://api.mercadopago.com/oauth/token";
@@ -18,7 +20,7 @@ type MpTokenResponse = {
 };
 
 function getConfig() {
-  const config = env as Record<string, unknown>;
+  const config = env as unknown as Record<string, unknown>;
   const clientId = config.MP_CLIENT_ID as string | undefined;
   const clientSecret = config.MP_CLIENT_SECRET as string | undefined;
   const webhookSecret = config.MP_WEBHOOK_SECRET as string | undefined;
@@ -299,18 +301,14 @@ type PixChargeRow = {
  * this drives an actual Pix payment amount.
  */
 export function computeCurrentAmountDue(row: PixChargeRow): number {
-  if (row.status === "paid") {
-    return row.original_amount;
-  }
-  const due = new Date(`${row.due_date}T12:00:00-03:00`);
-  const rawDaysLate = Math.max(0, Math.floor((Date.now() - due.getTime()) / 86_400_000));
-  const billableDaysLate = Math.max(0, rawDaysLate - row.grace_days);
-  if (billableDaysLate <= 0) {
-    return row.original_amount;
-  }
-  const fine = row.original_amount * row.fine_rate;
-  const interest = row.original_amount * (row.monthly_interest_rate / 30) * billableDaysLate;
-  return row.original_amount + fine + interest;
+  return computeAmountDue({
+    dueDate: row.due_date,
+    fineRate: row.fine_rate,
+    graceDays: row.grace_days,
+    monthlyInterestRate: row.monthly_interest_rate,
+    originalAmount: row.original_amount,
+    status: row.status,
+  });
 }
 
 /**
@@ -564,7 +562,7 @@ export async function recordApprovedPayment(input: {
     return false;
   }
 
-  const paymentId = `pay-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const paymentId = createId("pay");
 
   await d1.batch([
     d1.prepare("UPDATE charges SET status = 'paid' WHERE id = ?").bind(input.chargeId),

@@ -1,7 +1,8 @@
-import { requireApiUser, UnauthorizedError } from "../../../lib/session";
+import { requireApiUser } from "../../../lib/session";
 import { reviewSignedContract } from "../../../lib/contract-documents";
 import { ensureRentalDatabase } from "../../../lib/rental-repository";
 import { sendEmail } from "../../../lib/email";
+import { requiredString, getErrorMessage, errorStatus, escapeHtml } from "../../../lib/api-helpers";
 
 export async function POST(request: Request) {
   try {
@@ -47,27 +48,4 @@ export async function POST(request: Request) {
   } catch (error) {
     return Response.json({ error: getErrorMessage(error) }, { status: errorStatus(error) });
   }
-}
-
-function requiredString(value: unknown, field: string) {
-  const parsed = typeof value === "string" ? value.trim() : "";
-  if (!parsed) {
-    throw new Error(`${field} is required`);
-  }
-  return parsed;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function errorStatus(error: unknown) {
-  return error instanceof UnauthorizedError ? 401 : 400;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Erro inesperado";
 }
